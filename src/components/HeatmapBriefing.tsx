@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { FiredRule, Recommendation, Severity } from '../rules/evaluate'
 import {
   cellTier,
@@ -7,16 +8,17 @@ import {
   type MetricKey,
   type MetricSpec,
 } from '../rules/briefing'
+import { DayInspector } from './DayInspector'
 
 type Props = {
   recommendation: Recommendation
   onReset: () => void
 }
 
-const VERDICT_BADGE: Record<Severity, string> = {
-  standard: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
-  caution: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-  deload: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
+const VERDICT_BADGE: Record<Severity, { border: string; text: string; dot: string }> = {
+  standard: { border: 'border-teal', text: 'text-teal', dot: 'bg-teal' },
+  caution: { border: 'border-amber', text: 'text-amber', dot: 'bg-amber' },
+  deload: { border: 'border-rust', text: 'text-rust', dot: 'bg-rust' },
 }
 
 const VERDICT_LABEL: Record<Severity, string> = {
@@ -25,79 +27,187 @@ const VERDICT_LABEL: Record<Severity, string> = {
   deload: 'DELOAD',
 }
 
-const CELL_CLASS: Record<CellTier, string> = {
-  good: 'bg-sky-500/70',
-  warn: 'bg-orange-500/80',
-  bad: 'bg-rose-500/85',
-  empty: 'bg-zinc-800/60',
+const CELL_COLOR_HEX: Record<CellTier, string> = {
+  goodStrong: '#2a8aa3',
+  goodMild: '#1f5b6e',
+  flat: '#1c252e',
+  badMild: '#c46a55',
+  badStrong: '#e85d4a',
+  empty: 'rgba(28, 37, 46, 0.5)',
 }
 
 const METRIC_ROW_LABEL: Record<MetricKey, string> = {
   hrv: 'HRV',
   rhr: 'RHR',
   sleep: 'SLEEP',
-  workout: 'LOAD',
+  load: 'LOAD',
 }
 
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const { series, fired, verdict, asOfDay } = recommendation
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
     { key: 'rhr', label: 'Resting HR', unit: 'bpm', series: series.rhr, higherIsBetter: false, precision: 0 },
-    { key: 'sleep', label: 'Sleep', unit: 'hours', series: series.sleepHours, higherIsBetter: true, precision: 1 },
-    { key: 'workout', label: 'Load', unit: 'min/day', series: series.workoutMin, higherIsBetter: false, precision: 0 },
+    { key: 'sleep', label: 'Sleep', unit: 'hrs', series: series.sleepHours, higherIsBetter: true, precision: 1 },
+    { key: 'load', label: 'Load', unit: 'min', series: series.workoutMin, higherIsBetter: false, precision: 0 },
   ]
 
   const days = collectLast14Days(specs, asOfDay)
   const baselines = computeBaselines(specs)
+  const todayIso = days[days.length - 1] ?? asOfDay
   const summary = narrative(specs, asOfDay)
   const meta = metaRule(fired)
   const allRules = meta ? [meta, ...fired] : fired
+  const badge = VERDICT_BADGE[verdict]
+
+  const toggleDay = (day: string) =>
+    setSelectedDay((cur) => (cur === day ? null : day))
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-zinc-500">
-        <div>recovery-trail · 14d</div>
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-600">verdict</span>
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+            recovery-trail · 14d
+          </div>
+          <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
+            Briefing
+          </h2>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
+            Verdict
+          </div>
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${VERDICT_BADGE[verdict]}`}
+            className={`mt-1 inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-[0.15em] ${badge.border} ${badge.text}`}
           >
-            <span className="size-1.5 rounded-full bg-current" />
+            <span className={`size-1.5 rounded-full ${badge.dot}`} />
             {VERDICT_LABEL[verdict]}
           </span>
         </div>
       </div>
 
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-3xl font-semibold tracking-tight text-zinc-50">Briefing</h2>
-        <button
-          type="button"
-          onClick={onReset}
-          className="text-xs text-zinc-500 hover:text-zinc-300"
-        >
-          ← new file
-        </button>
+      <button
+        type="button"
+        onClick={onReset}
+        className="text-[11px] text-faint transition-colors hover:text-ink"
+      >
+        ← new file
+      </button>
+
+      <div className="rounded-xl border border-panelLine bg-panel p-4">
+        <div className="grid grid-cols-[56px_1fr_56px] items-center gap-3 px-1 font-mono text-[9.5px] text-faint">
+          <div />
+          <div className="flex justify-between">
+            <span>{shortDay(days[0])}</span>
+            <span>{shortDay(days[Math.floor(days.length / 2)])}</span>
+            <span className="text-ink">{shortDay(todayIso)}</span>
+          </div>
+          <div />
+        </div>
+
+        <div className="mt-2 space-y-1.5">
+          {specs.map((spec) => {
+            const baseline = baselines[spec.key]
+            const valueByDay = new Map(spec.series.map((m) => [m.day, m.value]))
+            const today = valueByDay.get(todayIso) ?? null
+            const dev =
+              today !== null && baseline !== null && baseline !== 0
+                ? ((today - baseline) / baseline) * 100
+                : null
+            const polaritySigned = spec.higherIsBetter ? -1 : 1
+            const isBad = dev !== null && polaritySigned * dev > 3
+            const isGood = dev !== null && polaritySigned * dev < -3
+
+            return (
+              <div
+                key={spec.key}
+                className="grid grid-cols-[56px_1fr_56px] items-center gap-3"
+              >
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted">
+                  {METRIC_ROW_LABEL[spec.key]}
+                </div>
+                <div className="grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]">
+                  {days.map((day) => {
+                    const v = valueByDay.get(day) ?? null
+                    const tier = cellTier(v, baseline, spec.higherIsBetter)
+                    const isSelected = selectedDay === day
+                    const isTodayCell = day === todayIso
+                    const outline =
+                      isSelected
+                        ? 'outline outline-[1.5px] outline-ink'
+                        : isTodayCell && selectedDay === null
+                          ? 'outline outline-1 outline-white/35'
+                          : ''
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDay(day)}
+                        title={`${day} · ${v === null ? '—' : v.toFixed(spec.precision)} ${spec.unit}`}
+                        className={`aspect-square rounded-[3px] transition-[transform,opacity] active:scale-90 ${outline}`}
+                        style={{ background: CELL_COLOR_HEX[tier] }}
+                      />
+                    )
+                  })}
+                </div>
+                <div className="text-right font-mono tabular-nums">
+                  <div className="text-sm font-medium text-ink">
+                    {today !== null ? today.toFixed(spec.precision) : '—'}
+                  </div>
+                  <div
+                    className={`text-[10.5px] ${
+                      isBad ? 'text-rust' : isGood ? 'text-teal' : 'text-faint'
+                    }`}
+                  >
+                    {dev !== null ? `${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%` : '—'}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="mt-3.5 flex items-center gap-2 border-t border-panelLine pt-2.5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-faint">
+          <span>{selectedDay !== null ? 'day selected' : 'tap a cell'}</span>
+          <div className="ml-auto flex gap-[2px]">
+            {(['goodStrong', 'goodMild', 'flat', 'badMild', 'badStrong'] as CellTier[]).map((t) => (
+              <div
+                key={t}
+                className="h-2 w-3.5 rounded-[2px]"
+                style={{ background: CELL_COLOR_HEX[t] }}
+              />
+            ))}
+          </div>
+          <span>worse</span>
+        </div>
       </div>
 
-      <HeatmapCard
-        specs={specs}
-        days={days}
-        baselines={baselines}
-      />
+      {selectedDay && (
+        <DayInspector
+          day={selectedDay}
+          isToday={selectedDay === todayIso}
+          specs={specs}
+          baselines={baselines}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
 
-      <p className="text-zinc-300">{summary}</p>
+      {!selectedDay && (
+        <p className="text-[14px] leading-relaxed text-ink">{summary}</p>
+      )}
 
       <div>
-        <h3 className="text-xs uppercase tracking-wider text-zinc-500">
+        <h3 className="px-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
           {allRules.length === 0
             ? 'no rules fired'
             : `${allRules.length} rule${allRules.length === 1 ? '' : 's'} fired`}
         </h3>
-        <ul className="mt-3 space-y-3">
+        <ul className="mt-1 divide-y divide-panelLine">
           {allRules.map((rule) => (
-            <RuleCard key={rule.id} rule={rule} />
+            <RuleRow key={rule.id} rule={rule} />
           ))}
         </ul>
       </div>
@@ -105,129 +215,25 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   )
 }
 
-type HeatmapCardProps = {
-  specs: MetricSpec[]
-  days: string[]
-  baselines: Record<MetricKey, number | null>
-}
-
-function HeatmapCard({ specs, days, baselines }: HeatmapCardProps) {
-  const dateLabels = pickDateLabels(days)
-
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
-      <div className="grid grid-cols-[56px_1fr_64px] items-center gap-3 px-1 text-[10px] uppercase tracking-wider text-zinc-500">
-        <div />
-        <div className="relative h-3">
-          {dateLabels.map(({ idx, label }) => (
-            <span
-              key={label}
-              className="absolute -translate-x-1/2"
-              style={{ left: `${(idx / Math.max(days.length - 1, 1)) * 100}%` }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-        <div className="text-right text-zinc-600">now</div>
-      </div>
-
-      <div className="mt-3 space-y-2">
-        {specs.map((spec) => {
-          const baseline = baselines[spec.key]
-          const valueByDay = new Map(spec.series.map((m) => [m.day, m.value]))
-          const today = valueByDay.get(days[days.length - 1])
-          const delta =
-            today !== undefined && baseline !== null && baseline !== 0
-              ? ((today - baseline) / baseline) * 100
-              : null
-          const directionGood =
-            delta === null
-              ? null
-              : spec.higherIsBetter
-                ? delta >= -2
-                : delta <= 2
-
-          return (
-            <div
-              key={spec.key}
-              className="grid grid-cols-[56px_1fr_64px] items-center gap-3"
-            >
-              <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
-                {METRIC_ROW_LABEL[spec.key]}
-              </div>
-              <div className="flex gap-1">
-                {days.map((day) => {
-                  const v = valueByDay.get(day) ?? null
-                  const tier = cellTier(v, baseline, spec.higherIsBetter)
-                  return (
-                    <div
-                      key={day}
-                      className={`h-5 flex-1 rounded-[3px] ${CELL_CLASS[tier]}`}
-                      title={`${day} · ${v === null ? '—' : v.toFixed(spec.precision)} ${spec.unit}`}
-                    />
-                  )
-                })}
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold tabular-nums text-zinc-100">
-                  {today !== undefined ? today.toFixed(spec.precision) : '—'}
-                </div>
-                {delta !== null && (
-                  <div
-                    className={`text-[10px] tabular-nums ${
-                      directionGood ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    {delta >= 0 ? '+' : ''}
-                    {delta.toFixed(0)}%
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="mt-4 grid grid-cols-[56px_1fr_64px] items-center gap-3 text-[10px] uppercase tracking-wider text-zinc-500">
-        <div>vs. baseline</div>
-        <div className="flex h-2 overflow-hidden rounded-full">
-          <div className="flex-[2] bg-sky-500/70" />
-          <div className="flex-1 bg-orange-500/80" />
-          <div className="flex-1 bg-rose-500/85" />
-        </div>
-        <div className="text-right text-zinc-600">worse</div>
-      </div>
-    </div>
-  )
-}
-
-function RuleCard({ rule }: { rule: FiredRule }) {
-  const badge = VERDICT_BADGE[rule.severity]
+function RuleRow({ rule }: { rule: FiredRule }) {
   const isMeta = rule.id === 'meta_recovery_stack'
+  const sev = rule.severity === 'deload' ? 'text-rust border-rust' : 'text-amber border-amber'
   const evidenceLine = isMeta ? null : formatEvidenceLine(rule)
-
   return (
-    <li
-      className={`rounded-lg border p-3 ${
-        isMeta ? 'border-zinc-700 bg-zinc-900/70' : 'border-zinc-800 bg-zinc-900/40'
-      }`}
-    >
+    <li className="px-2 py-3">
       <div className="flex items-center gap-2">
         <span
-          className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${badge}`}
+          className={`inline-flex border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] ${sev}`}
         >
           {rule.severity}
         </span>
-        <span
-          className={`text-sm font-medium ${isMeta ? 'text-zinc-50' : 'text-zinc-100'}`}
-        >
-          {rule.name}
-        </span>
+        <span className="text-[13px] font-medium text-ink">{rule.name}</span>
       </div>
-      <p className="mt-2 text-sm text-zinc-300">{rule.why}</p>
+      <p className="mt-1.5 text-[12.5px] leading-snug text-muted">{rule.why}</p>
       {evidenceLine && (
-        <p className="mt-1 text-[11px] tabular-nums text-zinc-500">{evidenceLine}</p>
+        <p className="mt-1.5 font-mono text-[10.5px] tabular-nums text-faint">
+          {evidenceLine}
+        </p>
       )}
     </li>
   )
@@ -235,9 +241,8 @@ function RuleCard({ rule }: { rule: FiredRule }) {
 
 function formatEvidenceLine(rule: FiredRule): string {
   const e = rule.evidence
-  // Standard ratio-style rules: prefer "7d X  base Y  ratio".
   if ('shortMean' in e && 'baselineMean' in e && 'ratio' in e) {
-    return `7d ${e.shortMean}  base ${e.baselineMean}  ${e.ratio}`
+    return `7d ${e.shortMean}  base ${e.baselineMean}  ×${(e.ratio as number).toFixed(2)}`
   }
   if ('mean' in e && 'nights' in e) {
     return `7d ${e.mean}  nights ${e.nights}`
@@ -256,10 +261,10 @@ function formatEvidenceLine(rule: FiredRule): string {
 function collectLast14Days(specs: MetricSpec[], asOfDay: string): string[] {
   const set = new Set<string>()
   for (const s of specs) for (const m of s.series.slice(-14)) set.add(m.day)
-  const sorted = Array.from(set)
+  return Array.from(set)
     .filter((d) => d <= asOfDay)
     .sort()
-  return sorted.slice(-14)
+    .slice(-14)
 }
 
 function computeBaselines(specs: MetricSpec[]): Record<MetricKey, number | null> {
@@ -271,18 +276,8 @@ function computeBaselines(specs: MetricSpec[]): Record<MetricKey, number | null>
   return out
 }
 
-function pickDateLabels(days: string[]): { idx: number; label: string }[] {
-  if (days.length === 0) return []
-  const mid = Math.floor(days.length / 2)
-  const last = days.length - 1
-  return [
-    { idx: 0, label: shortDay(days[0]) },
-    { idx: mid, label: shortDay(days[mid]) },
-    { idx: last, label: shortDay(days[last]) },
-  ]
-}
-
 function shortDay(iso: string): string {
+  if (!iso) return ''
   const [, m, d] = iso.split('-')
   return `${Number(m)}/${Number(d)}`
 }

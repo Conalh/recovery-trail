@@ -1,7 +1,7 @@
 import type { FiredRule, Severity } from './evaluate'
 import type { DailyMetric } from './aggregate'
 
-export type MetricKey = 'hrv' | 'rhr' | 'sleep' | 'workout'
+export type MetricKey = 'hrv' | 'rhr' | 'sleep' | 'load'
 
 export type MetricSpec = {
   key: MetricKey
@@ -13,12 +13,11 @@ export type MetricSpec = {
   precision: number
 }
 
-/** Severity tier for one heatmap cell based on day's value vs baseline. */
-export type CellTier = 'good' | 'warn' | 'bad' | 'empty'
-
-/** Cell tier thresholds — ratio of deviation from baseline on the "bad" side. */
-const WARN_THRESHOLD = 0.05
-const BAD_THRESHOLD = 0.12
+/**
+ * 5-tier cell scale from the prototype: signed % deviation from baseline,
+ * sign-flipped by polarity so positive == bad regardless of metric.
+ */
+export type CellTier = 'goodStrong' | 'goodMild' | 'flat' | 'badMild' | 'badStrong' | 'empty'
 
 export function cellTier(
   value: number | null,
@@ -26,11 +25,18 @@ export function cellTier(
   higherIsBetter: boolean,
 ): CellTier {
   if (value === null || baseline === null || baseline === 0) return 'empty'
-  const ratio = value / baseline
-  const badSide = higherIsBetter ? 1 - ratio : ratio - 1
-  if (badSide <= WARN_THRESHOLD) return 'good'
-  if (badSide <= BAD_THRESHOLD) return 'warn'
-  return 'bad'
+  const polarity = higherIsBetter ? 1 : -1
+  const badness = -polarity * ((value - baseline) / baseline) * 100
+  if (badness <= -10) return 'goodStrong'
+  if (badness <= -3) return 'goodMild'
+  if (badness <= 3) return 'flat'
+  if (badness <= 10) return 'badMild'
+  return 'badStrong'
+}
+
+/** True if a cell is on the "off baseline" side (badMild or badStrong). */
+export function isOffBaseline(tier: CellTier): boolean {
+  return tier === 'badMild' || tier === 'badStrong'
 }
 
 /** Map a rule id to the metric column it belongs in. */
@@ -38,7 +44,7 @@ export function metricOfRule(ruleId: string): MetricKey | null {
   if (ruleId.startsWith('hrv_')) return 'hrv'
   if (ruleId.startsWith('rhr_')) return 'rhr'
   if (ruleId.startsWith('sleep_')) return 'sleep'
-  if (ruleId.startsWith('acwr_')) return 'workout'
+  if (ruleId.startsWith('acwr_')) return 'load'
   return null
 }
 
@@ -57,7 +63,7 @@ export function metaRule(fired: FiredRule[]): FiredRule | null {
   const hasDeload = fired.some((r) => r.severity === 'deload')
   const severity: Severity = hasDeload ? 'deload' : 'caution'
   const names = Array.from(metrics)
-    .map((m) => ({ hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', workout: 'load' })[m])
+    .map((m) => ({ hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', load: 'load' })[m])
     .join(', ')
     .replace(/,([^,]*)$/, ', and$1')
   return {
@@ -82,16 +88,16 @@ export function narrative(specs: MetricSpec[], asOfDay: string): string {
     hrv: meanLast(specs.find((s) => s.key === 'hrv')?.series ?? [], 28),
     rhr: meanLast(specs.find((s) => s.key === 'rhr')?.series ?? [], 28),
     sleep: meanLast(specs.find((s) => s.key === 'sleep')?.series ?? [], 28),
-    workout: meanLast(specs.find((s) => s.key === 'workout')?.series ?? [], 28),
+    load: meanLast(specs.find((s) => s.key === 'load')?.series ?? [], 28),
   }
 
-  // Find the most recent day where ALL metrics with data were in 'good' territory.
+  // Find the most recent day where NO metric is off baseline.
   let lastCleanDay: string | null = null
   for (const day of days) {
     const allClean = specs.every((spec) => {
       const v = valueOn(spec.series, day)
       if (v === null) return true
-      return cellTier(v, baselines[spec.key], spec.higherIsBetter) === 'good'
+      return !isOffBaseline(cellTier(v, baselines[spec.key], spec.higherIsBetter))
     })
     if (allClean) {
       lastCleanDay = day
@@ -99,11 +105,11 @@ export function narrative(specs: MetricSpec[], asOfDay: string): string {
     }
   }
 
-  // Count metrics not in good territory on the most recent day.
+  // Count metrics off baseline on the most recent day.
   const latestDay = days[0]
   const flippedNow = specs.filter((spec) => {
     const v = valueOn(spec.series, latestDay)
-    return v !== null && cellTier(v, baselines[spec.key], spec.higherIsBetter) !== 'good'
+    return v !== null && isOffBaseline(cellTier(v, baselines[spec.key], spec.higherIsBetter))
   })
 
   if (flippedNow.length === 0) {
@@ -155,7 +161,7 @@ function countWord(n: number): string {
 }
 
 function labelOf(k: MetricKey): string {
-  return { hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', workout: 'load' }[k]
+  return { hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', load: 'load' }[k]
 }
 
 function capitalize(s: string): string {

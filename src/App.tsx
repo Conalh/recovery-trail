@@ -106,8 +106,11 @@ function App() {
           )}
         </div>
       </main>
-      <footer className="border-t border-zinc-800 px-6 py-4 text-center text-[11px] uppercase tracking-wider text-zinc-500">
-        local · no backend · recovery-trail
+      <footer className="border-t border-panelLine px-6 py-4 text-[11px] tracking-wider text-faint font-mono">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <span>local · no backend</span>
+          <span>recovery-trail</span>
+        </div>
       </footer>
     </div>
   )
