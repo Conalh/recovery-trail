@@ -1,6 +1,7 @@
 import type { FiredRule, Recommendation } from '../rules/evaluate'
 import { HeroChart } from './HeroChart'
 import { MetricSection } from './MetricSection'
+import { SummaryGrid } from './SummaryGrid'
 import { VerdictCard } from './VerdictCard'
 
 type Props = {
@@ -64,6 +65,15 @@ export function Dashboard({ recommendation, onReset }: Props) {
         verdict={recommendation.verdict}
         asOfDay={recommendation.asOfDay}
         firedCount={fired.length}
+      />
+
+      <SummaryGrid
+        cards={[
+          { label: 'HRV', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
+          { label: 'Resting HR', unit: 'bpm', series: series.rhr, higherIsBetter: false, precision: 0 },
+          { label: 'Sleep', unit: 'hours', series: series.sleepHours, higherIsBetter: true, precision: 1 },
+          { label: 'Workout load', unit: 'min/day', series: series.workoutMin, higherIsBetter: true, precision: 0 },
+        ]}
       />
 
       <div className="space-y-4">
