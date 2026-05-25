@@ -50,25 +50,29 @@ function App() {
 
   const reset = () => setPhase({ kind: 'idle' })
 
+  const isReady = phase.kind === 'ready'
+
   return (
     <div className="min-h-full flex flex-col">
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-baseline justify-between">
-          <h1 className="text-xl font-medium tracking-tight text-zinc-100">
-            recovery-trail
-          </h1>
-          <p className="text-xs text-zinc-500">Data never leaves your browser.</p>
-        </div>
-      </header>
+      {!isReady && (
+        <header className="border-b border-zinc-800 px-6 py-4">
+          <div className="max-w-2xl mx-auto flex items-baseline justify-between">
+            <h1 className="text-xl font-medium tracking-tight text-zinc-100">
+              recovery-trail
+            </h1>
+            <p className="text-xs text-zinc-500">Data never leaves your browser.</p>
+          </div>
+        </header>
+      )}
       <main className="flex-1 px-6 py-10">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           {phase.kind === 'idle' && (
             <div className="space-y-8">
               <div>
                 <h2 className="text-2xl font-medium tracking-tight text-zinc-100">
                   See your last two weeks of recovery — explained.
                 </h2>
-                <p className="mt-2 max-w-2xl text-zinc-400">
+                <p className="mt-2 text-zinc-400">
                   Drop in your Apple Health export. recovery-trail aggregates
                   HRV, resting heart rate, sleep, and workout load, runs them
                   against ACSM-aligned rules, and shows you the exact reasoning
@@ -102,8 +106,8 @@ function App() {
           )}
         </div>
       </main>
-      <footer className="border-t border-zinc-800 px-6 py-4 text-center text-xs text-zinc-500">
-        Local-first · No backend · MIT
+      <footer className="border-t border-zinc-800 px-6 py-4 text-center text-[11px] uppercase tracking-wider text-zinc-500">
+        local · no backend · recovery-trail
       </footer>
     </div>
   )
