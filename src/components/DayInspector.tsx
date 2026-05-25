@@ -21,6 +21,8 @@ type Props = {
   isToday: boolean
   specs: MetricSpec[]
   baselines: Record<MetricKey, number | null>
+  /** When true, run the slide-out animation. Parent unmounts after it finishes. */
+  isClosing: boolean
   onClose: () => void
 }
 
@@ -29,9 +31,13 @@ function shortDayLabel(iso: string): string {
   return `${Number(m)}/${Number(d)}`
 }
 
-export function DayInspector({ day, isToday, specs, baselines, onClose }: Props) {
+export function DayInspector({ day, isToday, specs, baselines, isClosing, onClose }: Props) {
   return (
-    <div className="animate-slide-in-top mt-3 rounded-xl border border-panelLine bg-panelDeep p-4">
+    <div
+      className={`mt-3 rounded-xl border border-panelLine bg-panelDeep p-4 ${
+        isClosing ? 'animate-slide-out-top' : 'animate-slide-in-top'
+      }`}
+    >
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-baseline gap-2">
           <span className="text-[10px] uppercase tracking-[0.15em] text-faint font-semibold">

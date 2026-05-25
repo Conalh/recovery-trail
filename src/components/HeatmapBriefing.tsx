@@ -44,10 +44,22 @@ const METRIC_ROW_LABEL: Record<MetricKey, string> = {
   load: 'LOAD',
 }
 
+type HoveredCell = {
+  day: string
+  metric: MetricKey
+  value: number | null
+  spec: MetricSpec
+}
+
+const INSPECTOR_EXIT_MS = 220
+
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const { series, fired, verdict, asOfDay } = recommendation
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [expandedMetric, setExpandedMetric] = useState<MetricKey | null>(null)
+  const [hoveredMetric, setHoveredMetric] = useState<MetricKey | null>(null)
+  const [hoveredCell, setHoveredCell] = useState<HoveredCell | null>(null)
+  const [inspectorClosing, setInspectorClosing] = useState(false)
 
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
@@ -64,18 +76,43 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const allRules = meta ? [meta, ...fired] : fired
   const badge = VERDICT_BADGE[verdict]
 
-  const toggleDay = (day: string) =>
-    setSelectedDay((cur) => (cur === day ? null : day))
+  const closeInspector = () => {
+    if (selectedDay === null) return
+    setInspectorClosing(true)
+    setTimeout(() => {
+      setSelectedDay(null)
+      setInspectorClosing(false)
+    }, INSPECTOR_EXIT_MS)
+  }
+
+  const toggleDay = (day: string) => {
+    if (selectedDay === day) {
+      closeInspector()
+    } else {
+      setSelectedDay(day)
+      setInspectorClosing(false)
+    }
+  }
 
   const toggleMetric = (m: MetricKey) =>
     setExpandedMetric((cur) => (cur === m ? null : m))
 
-  const hintLabel =
-    expandedMetric !== null
-      ? 'metric expanded'
-      : selectedDay !== null
-        ? 'day selected'
-        : 'tap a cell or row'
+  const hintLabel = (() => {
+    if (hoveredCell) {
+      const { day, metric, value, spec } = hoveredCell
+      const baseline = baselines[metric]
+      const dev =
+        value !== null && baseline !== null && baseline !== 0
+          ? ((value - baseline) / baseline) * 100
+          : null
+      const valStr = value !== null ? value.toFixed(spec.precision) : '—'
+      const devStr = dev !== null ? ` ${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%` : ''
+      return `${shortDay(day)} · ${METRIC_ROW_LABEL[metric]} ${valStr}${spec.unit}${devStr}`
+    }
+    if (expandedMetric !== null) return 'metric expanded'
+    if (selectedDay !== null) return 'day selected'
+    return 'tap a cell or row'
+  })()
 
   return (
     <div className="space-y-5">
@@ -95,7 +132,9 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
           <span
             className={`mt-1 inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-[0.15em] ${badge.border} ${badge.text}`}
           >
-            <span className={`size-1.5 rounded-full ${badge.dot}`} />
+            <span
+              className={`size-1.5 rounded-full ${badge.dot} ${verdict === 'deload' ? 'animate-pulse-attention' : ''}`}
+            />
             {VERDICT_LABEL[verdict]}
           </span>
         </div>
@@ -132,34 +171,45 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
             const polaritySigned = spec.higherIsBetter ? -1 : 1
             const isBad = dev !== null && polaritySigned * dev > 3
             const isGood = dev !== null && polaritySigned * dev < -3
+            const isExpanded = expandedMetric === spec.key
+            const isRowDimmed =
+              hoveredMetric !== null && hoveredMetric !== spec.key
+            const isRowHighlighted = hoveredMetric === spec.key
 
             return (
               <div
                 key={spec.key}
-                className={`grid grid-cols-[56px_1fr_56px] items-center gap-3 rounded-md ${
-                  expandedMetric === spec.key ? 'bg-white/[0.025]' : ''
-                }`}
+                onMouseEnter={() => setHoveredMetric(spec.key)}
+                onMouseLeave={() => setHoveredMetric(null)}
+                className={`grid grid-cols-[56px_1fr_56px] items-center gap-3 rounded-md transition-opacity duration-200 ${
+                  isExpanded ? 'bg-white/[0.025]' : ''
+                } ${isRowDimmed ? 'opacity-40' : 'opacity-100'}`}
               >
                 <button
                   type="button"
                   onClick={() => toggleMetric(spec.key)}
                   className={`text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] rounded transition-colors px-1 py-1 hover:bg-white/5 ${
-                    expandedMetric === spec.key ? 'text-ink' : 'text-muted'
+                    isExpanded || isRowHighlighted ? 'text-ink' : 'text-muted'
                   }`}
                 >
                   {METRIC_ROW_LABEL[spec.key]}
                 </button>
-                {expandedMetric === spec.key ? (
-                  <MetricChart
-                    spec={spec}
-                    days={days}
-                    baseline={baseline}
-                    selectedDay={selectedDay}
-                    badToday={isBad}
-                    onSelectDay={toggleDay}
-                  />
+                {isExpanded ? (
+                  <div className="animate-fade-in">
+                    <MetricChart
+                      spec={spec}
+                      days={days}
+                      baseline={baseline}
+                      selectedDay={selectedDay}
+                      badToday={isBad}
+                      onSelectDay={toggleDay}
+                    />
+                  </div>
                 ) : (
-                  <div className="grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]">
+                  <div
+                    className="animate-fade-in grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]"
+                    onMouseLeave={() => setHoveredCell(null)}
+                  >
                     {days.map((day) => {
                       const v = valueByDay.get(day) ?? null
                       const tier = cellTier(v, baseline, spec.higherIsBetter)
@@ -176,8 +226,13 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                           key={day}
                           type="button"
                           onClick={() => toggleDay(day)}
-                          title={`${day} · ${v === null ? '—' : v.toFixed(spec.precision)} ${spec.unit}`}
-                          className={`aspect-square rounded-[3px] transition-[transform,opacity] active:scale-90 ${outline}`}
+                          onMouseEnter={() =>
+                            setHoveredCell({ day, metric: spec.key, value: v, spec })
+                          }
+                          aria-label={`${day} ${METRIC_ROW_LABEL[spec.key]} ${
+                            v === null ? 'no data' : v.toFixed(spec.precision) + ' ' + spec.unit
+                          }`}
+                          className={`aspect-square rounded-[3px] transition duration-150 hover:scale-110 hover:brightness-125 active:scale-90 ${outline}`}
                           style={{ background: CELL_COLOR_HEX[tier] }}
                         />
                       )
@@ -202,7 +257,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </div>
 
         <div className="mt-3.5 flex items-center gap-2 border-t border-panelLine pt-2.5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-faint">
-          <span>{hintLabel}</span>
+          <span className="transition-colors">{hintLabel}</span>
           <div className="ml-auto flex gap-[2px]">
             {(['goodStrong', 'goodMild', 'flat', 'badMild', 'badStrong'] as CellTier[]).map((t) => (
               <div
@@ -222,7 +277,8 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
           isToday={selectedDay === todayIso}
           specs={specs}
           baselines={baselines}
-          onClose={() => setSelectedDay(null)}
+          isClosing={inspectorClosing}
+          onClose={closeInspector}
         />
       )}
 
@@ -249,9 +305,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
 function RuleRow({ rule }: { rule: FiredRule }) {
   const isMeta = rule.id === 'meta_recovery_stack'
   const sev = rule.severity === 'deload' ? 'text-rust border-rust' : 'text-amber border-amber'
+  const hoverBorder = rule.severity === 'deload' ? 'hover:border-l-rust' : 'hover:border-l-amber'
   const evidenceLine = isMeta ? null : formatEvidenceLine(rule)
   return (
-    <li className="px-2 py-3">
+    <li
+      className={`cursor-pointer border-l-2 border-l-transparent px-2 py-3 transition-colors hover:bg-white/[0.02] ${hoverBorder}`}
+    >
       <div className="flex items-center gap-2">
         <span
           className={`inline-flex border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] ${sev}`}

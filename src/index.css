@@ -22,10 +22,26 @@ body {
   animation: slideInTop 0.26s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
+@keyframes slideOutTop {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+.animate-slide-out-top {
+  animation: slideOutTop 0.22s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@keyframes pulseAttention {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.6); opacity: 0.55; }
+}
+.animate-pulse-attention {
+  animation: pulseAttention 1.1s cubic-bezier(0.4, 0, 0.6, 1) 3;
 }
