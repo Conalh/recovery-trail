@@ -1,0 +1,28 @@
+{
+  "_source": "Derived from fit-ontology's ACSM-aligned defaults. Tunable.",
+  "hrv": {
+    "shortWindowDays": 7,
+    "baselineWindowDays": 28,
+    "deloadRatio": 0.80,
+    "cautionRatio": 0.90
+  },
+  "rhr": {
+    "shortWindowDays": 7,
+    "baselineWindowDays": 28,
+    "cautionRatio": 1.05,
+    "deloadRatio": 1.10
+  },
+  "sleep": {
+    "windowDays": 7,
+    "cautionMinHours": 6.5,
+    "deloadMinHours": 6.0,
+    "minLowNights": 3,
+    "lowNightHours": 6.0
+  },
+  "workout": {
+    "acuteDays": 7,
+    "chronicDays": 28,
+    "highAcwr": 1.5,
+    "veryHighAcwr": 1.8
+  }
+}
