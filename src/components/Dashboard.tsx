@@ -1,6 +1,6 @@
-import type { Recommendation } from '../rules/evaluate'
-import { MetricCard } from './MetricCard'
-import { RuleTrace } from './RuleTrace'
+import type { FiredRule, Recommendation } from '../rules/evaluate'
+import { HeroChart } from './HeroChart'
+import { MetricSection } from './MetricSection'
 import { VerdictCard } from './VerdictCard'
 
 type Props = {
@@ -8,8 +8,13 @@ type Props = {
   onReset: () => void
 }
 
-function last(values: number[]): number | null {
-  return values.length === 0 ? null : values[values.length - 1]
+/** Map a rule id to the metric section it belongs under. */
+function metricOf(ruleId: string): 'hrv' | 'rhr' | 'sleep' | 'workout' | null {
+  if (ruleId.startsWith('hrv_')) return 'hrv'
+  if (ruleId.startsWith('rhr_')) return 'rhr'
+  if (ruleId.startsWith('sleep_')) return 'sleep'
+  if (ruleId.startsWith('acwr_')) return 'workout'
+  return null
 }
 
 function mean(values: number[]): number | null {
@@ -18,15 +23,20 @@ function mean(values: number[]): number | null {
 }
 
 export function Dashboard({ recommendation, onReset }: Props) {
-  const hrv = recommendation.series.hrv.slice(-14).map((m) => m.value)
-  const rhr = recommendation.series.rhr.slice(-14).map((m) => m.value)
-  const sleep = recommendation.series.sleepHours.slice(-14).map((m) => m.value)
-  const work = recommendation.series.workoutMin.slice(-14).map((m) => m.value)
+  const { series, fired } = recommendation
 
-  const hrvBaseline = mean(recommendation.series.hrv.slice(-28).map((m) => m.value))
-  const rhrBaseline = mean(recommendation.series.rhr.slice(-28).map((m) => m.value))
-  const sleepBaseline = mean(recommendation.series.sleepHours.slice(-28).map((m) => m.value))
-  const workBaseline = mean(recommendation.series.workoutMin.slice(-28).map((m) => m.value))
+  const grouped: Record<'hrv' | 'rhr' | 'sleep' | 'workout', FiredRule[]> = {
+    hrv: [],
+    rhr: [],
+    sleep: [],
+    workout: [],
+  }
+  for (const rule of fired) {
+    const m = metricOf(rule.id)
+    if (m) grouped[m].push(rule)
+  }
+
+  const hrvBaseline = mean(series.hrv.slice(-28).map((m) => m.value))
 
   return (
     <div className="space-y-6">
@@ -41,54 +51,54 @@ export function Dashboard({ recommendation, onReset }: Props) {
         </button>
       </div>
 
+      <HeroChart
+        label="HRV (SDNN)"
+        unit="ms"
+        series={series.hrv}
+        baseline={hrvBaseline}
+        higherIsBetter
+        precision={0}
+      />
+
       <VerdictCard
         verdict={recommendation.verdict}
         asOfDay={recommendation.asOfDay}
-        firedCount={recommendation.fired.length}
+        firedCount={fired.length}
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
+      <div className="space-y-4">
+        <MetricSection
           label="HRV (SDNN)"
           unit="ms"
-          current={last(hrv)}
-          baseline={hrvBaseline}
-          series={hrv}
+          series={series.hrv}
           higherIsBetter
           precision={0}
+          rules={grouped.hrv}
         />
-        <MetricCard
-          label="Resting HR"
+        <MetricSection
+          label="Resting heart rate"
           unit="bpm"
-          current={last(rhr)}
-          baseline={rhrBaseline}
-          series={rhr}
+          series={series.rhr}
           higherIsBetter={false}
           precision={0}
+          rules={grouped.rhr}
         />
-        <MetricCard
+        <MetricSection
           label="Sleep"
           unit="hours"
-          current={last(sleep)}
-          baseline={sleepBaseline}
-          series={sleep}
+          series={series.sleepHours}
           higherIsBetter
           precision={1}
+          rules={grouped.sleep}
         />
-        <MetricCard
+        <MetricSection
           label="Workout load"
           unit="min/day"
-          current={last(work)}
-          baseline={workBaseline}
-          series={work}
+          series={series.workoutMin}
           higherIsBetter
           precision={0}
+          rules={grouped.workout}
         />
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-lg font-medium text-zinc-200">Why this verdict</h2>
-        <RuleTrace fired={recommendation.fired} />
       </div>
     </div>
   )
