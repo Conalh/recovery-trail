@@ -9,6 +9,7 @@ import {
   type MetricSpec,
 } from '../rules/briefing'
 import { DayInspector } from './DayInspector'
+import { MetricChart } from './MetricChart'
 
 type Props = {
   recommendation: Recommendation
@@ -46,6 +47,7 @@ const METRIC_ROW_LABEL: Record<MetricKey, string> = {
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const { series, fired, verdict, asOfDay } = recommendation
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [expandedMetric, setExpandedMetric] = useState<MetricKey | null>(null)
 
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
@@ -64,6 +66,16 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
 
   const toggleDay = (day: string) =>
     setSelectedDay((cur) => (cur === day ? null : day))
+
+  const toggleMetric = (m: MetricKey) =>
+    setExpandedMetric((cur) => (cur === m ? null : m))
+
+  const hintLabel =
+    expandedMetric !== null
+      ? 'metric expanded'
+      : selectedDay !== null
+        ? 'day selected'
+        : 'tap a cell or row'
 
   return (
     <div className="space-y-5">
@@ -124,35 +136,54 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
             return (
               <div
                 key={spec.key}
-                className="grid grid-cols-[56px_1fr_56px] items-center gap-3"
+                className={`grid grid-cols-[56px_1fr_56px] items-center gap-3 rounded-md ${
+                  expandedMetric === spec.key ? 'bg-white/[0.025]' : ''
+                }`}
               >
-                <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted">
+                <button
+                  type="button"
+                  onClick={() => toggleMetric(spec.key)}
+                  className={`text-left text-[10.5px] font-semibold uppercase tracking-[0.1em] rounded transition-colors px-1 py-1 hover:bg-white/5 ${
+                    expandedMetric === spec.key ? 'text-ink' : 'text-muted'
+                  }`}
+                >
                   {METRIC_ROW_LABEL[spec.key]}
-                </div>
-                <div className="grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]">
-                  {days.map((day) => {
-                    const v = valueByDay.get(day) ?? null
-                    const tier = cellTier(v, baseline, spec.higherIsBetter)
-                    const isSelected = selectedDay === day
-                    const isTodayCell = day === todayIso
-                    const outline =
-                      isSelected
-                        ? 'outline outline-[1.5px] outline-ink'
-                        : isTodayCell && selectedDay === null
-                          ? 'outline outline-1 outline-white/35'
-                          : ''
-                    return (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => toggleDay(day)}
-                        title={`${day} · ${v === null ? '—' : v.toFixed(spec.precision)} ${spec.unit}`}
-                        className={`aspect-square rounded-[3px] transition-[transform,opacity] active:scale-90 ${outline}`}
-                        style={{ background: CELL_COLOR_HEX[tier] }}
-                      />
-                    )
-                  })}
-                </div>
+                </button>
+                {expandedMetric === spec.key ? (
+                  <MetricChart
+                    spec={spec}
+                    days={days}
+                    baseline={baseline}
+                    selectedDay={selectedDay}
+                    badToday={isBad}
+                    onSelectDay={toggleDay}
+                  />
+                ) : (
+                  <div className="grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]">
+                    {days.map((day) => {
+                      const v = valueByDay.get(day) ?? null
+                      const tier = cellTier(v, baseline, spec.higherIsBetter)
+                      const isSelected = selectedDay === day
+                      const isTodayCell = day === todayIso
+                      const outline =
+                        isSelected
+                          ? 'outline outline-[1.5px] outline-ink'
+                          : isTodayCell && selectedDay === null
+                            ? 'outline outline-1 outline-white/35'
+                            : ''
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleDay(day)}
+                          title={`${day} · ${v === null ? '—' : v.toFixed(spec.precision)} ${spec.unit}`}
+                          className={`aspect-square rounded-[3px] transition-[transform,opacity] active:scale-90 ${outline}`}
+                          style={{ background: CELL_COLOR_HEX[tier] }}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
                 <div className="text-right font-mono tabular-nums">
                   <div className="text-sm font-medium text-ink">
                     {today !== null ? today.toFixed(spec.precision) : '—'}
@@ -171,7 +202,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </div>
 
         <div className="mt-3.5 flex items-center gap-2 border-t border-panelLine pt-2.5 font-mono text-[9.5px] uppercase tracking-[0.1em] text-faint">
-          <span>{selectedDay !== null ? 'day selected' : 'tap a cell'}</span>
+          <span>{hintLabel}</span>
           <div className="ml-auto flex gap-[2px]">
             {(['goodStrong', 'goodMild', 'flat', 'badMild', 'badStrong'] as CellTier[]).map((t) => (
               <div
