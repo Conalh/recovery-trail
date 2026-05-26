@@ -427,6 +427,12 @@ type RuleRowProps = {
   onClick: () => void
 }
 
+const WINDOW_BADGE_LABEL: Record<NonNullable<FiredRule['windowsFired']>, string> = {
+  acute: '7d',
+  chronic: '28d',
+  both: '7d + 28d',
+}
+
 function RuleRow({ rule, focused, onClick }: RuleRowProps) {
   const isMeta = rule.id === 'meta_recovery_stack'
   const sev = rule.severity === 'deload' ? 'text-rust border-rust' : 'text-amber border-amber'
@@ -465,6 +471,14 @@ function RuleRow({ rule, focused, onClick }: RuleRowProps) {
           {rule.severity}
         </span>
         <span className="text-[13px] font-medium text-ink">{rule.name}</span>
+        {rule.windowsFired && (
+          <span
+            className="ml-auto inline-flex rounded-sm border border-fainter bg-white/[0.03] px-1.5 py-[1px] font-mono text-[9.5px] font-medium tracking-[0.05em] text-muted"
+            title="Which dual-window detector(s) fired before the combiner"
+          >
+            {WINDOW_BADGE_LABEL[rule.windowsFired]}
+          </span>
+        )}
       </div>
       <p className="mt-1.5 text-[12.5px] leading-snug text-muted">{rule.why}</p>
       {evidenceLine && (
@@ -477,6 +491,17 @@ function RuleRow({ rule, focused, onClick }: RuleRowProps) {
 }
 
 function formatEvidenceLine(rule: FiredRule): string {
+  // Trend rules: surface the dual-window slope numbers in SD/day.
+  if (rule.slopes) {
+    const parts: string[] = []
+    if (rule.slopes.acute !== undefined) {
+      parts.push(`7d ${formatSignedSd(rule.slopes.acute)} SD/d`)
+    }
+    if (rule.slopes.chronic !== undefined) {
+      parts.push(`28d ${formatSignedSd(rule.slopes.chronic)} SD/d`)
+    }
+    return parts.join('   ')
+  }
   const e = rule.evidence
   if ('shortMean' in e && 'baselineMean' in e && 'ratio' in e) {
     return `7d ${e.shortMean}  base ${e.baselineMean}  ×${(e.ratio as number).toFixed(2)}`
@@ -493,6 +518,11 @@ function formatEvidenceLine(rule: FiredRule): string {
   return Object.entries(e)
     .map(([k, v]) => `${k} ${v}`)
     .join('  ')
+}
+
+function formatSignedSd(n: number): string {
+  const sign = n >= 0 ? '+' : ''
+  return `${sign}${n.toFixed(2)}`
 }
 
 function collectLast14Days(specs: MetricSpec[], asOfDay: string): string[] {

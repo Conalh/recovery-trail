@@ -13,11 +13,15 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
   for (let d = startDays; d >= 0; d--) {
     const date = addDays(today, -d)
     const isRecentWeek = d < 7
+    // Within the recent week, linearly progress from baseline (day 6 ago)
+    // to fully degraded (today). This gives the engine v2 trend detectors
+    // a clean linear slope to fire on, instead of a noisy step.
+    const recentProgress = isRecentWeek ? (6 - d) / 6 : 0
 
-    // HRV: baseline ~55ms, recent week dipping to ~48ms.
+    // HRV: baseline ~55ms, linearly declining to ~46ms across recent week.
     const hrvBase = 55
-    const hrvNoise = (rng() - 0.5) * 8
-    const hrvDip = isRecentWeek ? -7 : 0
+    const hrvNoise = (rng() - 0.5) * 2.5
+    const hrvDip = -9 * recentProgress
     const hrvValue = Math.max(20, hrvBase + hrvDip + hrvNoise)
     out.hrv.push({
       startDate: atHour(date, 4).toISOString(),
@@ -25,18 +29,21 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
       source: 'Apple Watch',
     })
 
-    // RHR: baseline 56bpm, recent week creeping up to 60bpm.
+    // RHR: baseline 56bpm, linearly climbing to ~62bpm across recent week.
     const rhrBase = 56
-    const rhrNoise = (rng() - 0.5) * 3
-    const rhrUp = isRecentWeek ? 4 : 0
+    const rhrNoise = (rng() - 0.5) * 1.5
+    const rhrUp = 6 * recentProgress
     out.rhr.push({
       startDate: atHour(date, 5).toISOString(),
       valueBpm: Math.round(rhrBase + rhrUp + rhrNoise),
       source: 'Apple Watch',
     })
 
-    // Sleep: 7-8h normally, 5.5-6h in recent week.
-    const sleepHours = isRecentWeek ? 5.5 + rng() * 0.5 : 7 + rng() * 1
+    // Sleep: 7.5h normally, linearly declining to ~5.5h across recent week.
+    const sleepNoise = (rng() - 0.5) * 0.4
+    const sleepHours = isRecentWeek
+      ? 7.5 - 2.0 * recentProgress + sleepNoise
+      : 7.4 + rng() * 0.6
     const sleepEnd = atHour(date, 7)
     const sleepStart = new Date(sleepEnd.getTime() - sleepHours * 3_600_000)
     out.sleep.push({
