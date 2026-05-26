@@ -64,11 +64,15 @@ body {
     box-shadow: 0 0 0 1px rgba(224, 164, 88, 0.45), 0 0 12px rgba(224, 164, 88, 0.5) !important;
   }
 
+  /* Selection halo picks up the cell's own tier color via --cell-rgb,
+     so a teal cell gets a teal glow and a rust cell gets a rust glow.
+     Slightly lower opacities than the original white version since
+     saturated colors carry more perceived brightness. */
   .cell-selected {
     box-shadow:
-      0 0 0 1.5px rgba(216, 228, 237, 0.95),
-      0 0 10px rgba(216, 228, 237, 0.45),
-      0 0 18px rgba(216, 228, 237, 0.18) !important;
+      0 0 0 1.5px rgba(var(--cell-rgb, 216 228 237), 0.78),
+      0 0 10px rgba(var(--cell-rgb, 216 228 237), 0.42),
+      0 0 18px rgba(var(--cell-rgb, 216 228 237), 0.18) !important;
   }
 
   @keyframes todayBreathe {

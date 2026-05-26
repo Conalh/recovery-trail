@@ -38,6 +38,16 @@ const CELL_COLOR_HEX: Record<CellTier, string> = {
   empty: 'rgba(28, 37, 46, 0.5)',
 }
 
+/** RGB triplet form of each tier color, fed to .cell-selected via --cell-rgb. */
+const CELL_COLOR_RGB: Record<CellTier, string> = {
+  goodStrong: '42, 138, 163',
+  goodMild: '31, 91, 110',
+  flat: '110, 130, 150',
+  badMild: '196, 106, 85',
+  badStrong: '232, 93, 74',
+  empty: '110, 130, 150',
+}
+
 const METRIC_ROW_LABEL: Record<MetricKey, string> = {
   hrv: 'HRV',
   rhr: 'RHR',
@@ -330,7 +340,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                             v === null ? 'no data' : v.toFixed(spec.precision) + ' ' + spec.unit
                           }`}
                           className={`aspect-square rounded-[3px] transition duration-150 hover:scale-110 hover:brightness-125 hover:shadow-[0_0_8px_rgba(255,255,255,0.25)] active:scale-90 ${stateClass}`}
-                          style={{ background: CELL_COLOR_HEX[tier] }}
+                          style={
+                            {
+                              background: CELL_COLOR_HEX[tier],
+                              '--cell-rgb': CELL_COLOR_RGB[tier],
+                            } as React.CSSProperties
+                          }
                         />
                       )
                     })}
