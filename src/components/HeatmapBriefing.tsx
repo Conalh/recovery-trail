@@ -17,10 +17,10 @@ type Props = {
   onReset: () => void
 }
 
-const VERDICT_BADGE: Record<Severity, { border: string; text: string; dot: string }> = {
-  standard: { border: 'border-teal', text: 'text-teal', dot: 'bg-teal' },
-  caution: { border: 'border-amber', text: 'text-amber', dot: 'bg-amber' },
-  deload: { border: 'border-rust', text: 'text-rust', dot: 'bg-rust' },
+const VERDICT_BADGE: Record<Severity, { border: string; text: string; dot: string; glow: string }> = {
+  standard: { border: 'border-teal', text: 'text-teal', dot: 'bg-teal', glow: 'glow-teal' },
+  caution: { border: 'border-amber', text: 'text-amber', dot: 'bg-amber', glow: 'glow-amber' },
+  deload: { border: 'border-rust', text: 'text-rust', dot: 'bg-rust', glow: 'glow-rust' },
 }
 
 const VERDICT_LABEL: Record<Severity, string> = {
@@ -53,6 +53,7 @@ type HoveredCell = {
 }
 
 const INSPECTOR_EXIT_MS = 220
+const ROW_STAGGER_CLASSES = ['stagger-6', 'stagger-7', 'stagger-8', 'stagger-9']
 
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const { series, fired, verdict, asOfDay } = recommendation
@@ -116,8 +117,6 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
     }
   }
 
-  // Keyboard navigation: arrows step days, Esc closes top-of-stack,
-  // digits 1-4 toggle metric rows.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement) {
@@ -190,7 +189,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="stagger-in stagger-1 flex items-start justify-between gap-4">
         <div>
           <div className="text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
             recovery-trail · 14d
@@ -207,7 +206,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
             className={`mt-1 inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-[0.15em] ${badge.border} ${badge.text}`}
           >
             <span
-              className={`size-1.5 rounded-full ${badge.dot} ${verdict === 'deload' ? 'animate-pulse-attention' : ''}`}
+              className={`size-1.5 rounded-full ${badge.dot} ${badge.glow} ${verdict === 'deload' ? 'animate-pulse-attention' : ''}`}
             />
             {VERDICT_LABEL[verdict]}
           </span>
@@ -217,12 +216,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
       <button
         type="button"
         onClick={onReset}
-        className="text-[11px] text-faint transition-colors hover:text-ink"
+        className="stagger-in stagger-2 text-[11px] text-faint transition-colors hover:text-ink"
       >
         ← new file
       </button>
 
-      <div className="rounded-xl border border-panelLine bg-panel p-4">
+      <div className="stagger-in stagger-3 rounded-xl border border-panelLine bg-panel p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_30px_-12px_rgba(0,0,0,0.6)]">
         <div className="grid grid-cols-[56px_1fr_56px] items-center gap-3 px-1 font-mono text-[9.5px] text-faint">
           <div />
           <div className="flex justify-between">
@@ -234,7 +233,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </div>
 
         <div className="mt-2 space-y-1.5">
-          {specs.map((spec) => {
+          {specs.map((spec, rowIdx) => {
             const baseline = baselines[spec.key]
             const valueByDay = new Map(spec.series.map((m) => [m.day, m.value]))
             const today = valueByDay.get(todayIso) ?? null
@@ -246,9 +245,6 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
             const isBad = dev !== null && polaritySigned * dev > 3
             const isGood = dev !== null && polaritySigned * dev < -3
             const isExpanded = expandedMetric === spec.key
-            // Rule focus drives base dim state; hover overrides only when
-            // no rule is focused, matching the prototype's interaction
-            // hierarchy.
             let isRowDimmed = false
             let isRowHighlighted = false
             if (focusedRule) {
@@ -256,20 +252,23 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                 isRowDimmed = focusedMetric !== spec.key
                 isRowHighlighted = focusedMetric === spec.key
               }
-              // meta-rule (focusedMetric === null) leaves all rows bright
             } else if (hoveredMetric) {
               isRowDimmed = hoveredMetric !== spec.key
               isRowHighlighted = hoveredMetric === spec.key
             }
+
+            const rowState = isRowDimmed
+              ? 'opacity-50 saturate-[0.55]'
+              : 'opacity-100 saturate-100'
 
             return (
               <div
                 key={spec.key}
                 onMouseEnter={() => setHoveredMetric(spec.key)}
                 onMouseLeave={() => setHoveredMetric(null)}
-                className={`grid grid-cols-[56px_1fr_56px] items-center gap-3 rounded-md transition-opacity duration-200 ${
+                className={`stagger-in ${ROW_STAGGER_CLASSES[rowIdx]} grid grid-cols-[56px_1fr_56px] items-center gap-3 rounded-md transition-[opacity,filter,background-color] duration-300 ${
                   isExpanded ? 'bg-white/[0.025]' : ''
-                } ${isRowDimmed ? 'opacity-40' : 'opacity-100'}`}
+                } ${rowState}`}
               >
                 <button
                   type="button"
@@ -314,12 +313,11 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                       const tier = cellTier(v, baseline, spec.higherIsBetter)
                       const isSelected = selectedDay === day
                       const isTodayCell = day === todayIso
-                      const outline =
-                        isSelected
-                          ? 'outline outline-[1.5px] outline-ink'
-                          : isTodayCell && selectedDay === null
-                            ? 'outline outline-1 outline-white/35'
-                            : ''
+                      const stateClass = isSelected
+                        ? 'cell-selected'
+                        : isTodayCell && selectedDay === null
+                          ? 'cell-today'
+                          : ''
                       return (
                         <button
                           key={day}
@@ -331,7 +329,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                           aria-label={`${day} ${METRIC_ROW_LABEL[spec.key]} ${
                             v === null ? 'no data' : v.toFixed(spec.precision) + ' ' + spec.unit
                           }`}
-                          className={`aspect-square rounded-[3px] transition duration-150 hover:scale-110 hover:brightness-125 active:scale-90 ${outline}`}
+                          className={`aspect-square rounded-[3px] transition duration-150 hover:scale-110 hover:brightness-125 hover:shadow-[0_0_8px_rgba(255,255,255,0.25)] active:scale-90 ${stateClass}`}
                           style={{ background: CELL_COLOR_HEX[tier] }}
                         />
                       )
@@ -382,10 +380,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
       )}
 
       {!selectedDay && (
-        <p className="text-[14px] leading-relaxed text-ink">{summary}</p>
+        <p className="stagger-in stagger-4 text-[14px] leading-relaxed text-ink">
+          {summary}
+        </p>
       )}
 
-      <div>
+      <div className="stagger-in stagger-5">
         <h3 className="px-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
           {allRules.length === 0
             ? 'no rules fired'
@@ -418,12 +418,16 @@ function RuleRow({ rule, focused, onClick }: RuleRowProps) {
   const focusBorder = rule.severity === 'deload' ? 'border-l-rust' : 'border-l-amber'
   const hoverBorder = rule.severity === 'deload' ? 'hover:border-l-rust' : 'hover:border-l-amber'
   const focusBg = rule.severity === 'deload' ? 'bg-rust/[0.07]' : 'bg-amber/[0.06]'
+  const focusGlow =
+    rule.severity === 'deload'
+      ? 'shadow-[inset_3px_0_14px_-4px_rgba(232,93,74,0.45)]'
+      : 'shadow-[inset_3px_0_14px_-4px_rgba(224,164,88,0.45)]'
   const evidenceLine = isMeta ? null : formatEvidenceLine(rule)
 
   const borderClass = focused
     ? `border-l-2 ${focusBorder}`
     : `border-l-2 border-l-transparent ${hoverBorder}`
-  const bgClass = focused ? focusBg : 'hover:bg-white/[0.02]'
+  const bgClass = focused ? `${focusBg} ${focusGlow}` : 'hover:bg-white/[0.02]'
 
   return (
     <li
@@ -437,7 +441,7 @@ function RuleRow({ rule, focused, onClick }: RuleRowProps) {
       role="button"
       tabIndex={0}
       aria-pressed={focused}
-      className={`cursor-pointer px-2 py-3 transition-colors ${borderClass} ${bgClass}`}
+      className={`cursor-pointer px-2 py-3 transition-all duration-200 ${borderClass} ${bgClass}`}
     >
       <div className="flex items-center gap-2">
         <span

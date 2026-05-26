@@ -16,6 +16,8 @@ const CELL_COLOR_HEX: Record<string, string> = {
   empty: 'rgba(28, 37, 46, 0.5)',
 }
 
+const ROW_STAGGER = ['stagger-6', 'stagger-7', 'stagger-8', 'stagger-9']
+
 type Props = {
   day: string
   isToday: boolean
@@ -34,7 +36,7 @@ function shortDayLabel(iso: string): string {
 export function DayInspector({ day, isToday, specs, baselines, isClosing, onClose }: Props) {
   return (
     <div
-      className={`mt-3 rounded-xl border border-panelLine bg-panelDeep p-4 ${
+      className={`mt-3 rounded-xl border border-panelLine bg-panelDeep p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_36px_-16px_rgba(0,0,0,0.7)] ${
         isClosing ? 'animate-slide-out-top' : 'animate-slide-in-top'
       }`}
     >
@@ -43,7 +45,10 @@ export function DayInspector({ day, isToday, specs, baselines, isClosing, onClos
           <span className="text-[10px] uppercase tracking-[0.15em] text-faint font-semibold">
             Day
           </span>
-          <span className="font-mono text-base font-medium text-ink tabular-nums">
+          <span
+            key={day}
+            className="animate-value-swap font-mono text-base font-medium text-ink tabular-nums"
+          >
             {shortDayLabel(day)}
           </span>
           {isToday && (
@@ -61,7 +66,7 @@ export function DayInspector({ day, isToday, specs, baselines, isClosing, onClos
       </div>
 
       <div className="space-y-2">
-        {specs.map((spec) => {
+        {specs.map((spec, rowIdx) => {
           const baseline = baselines[spec.key]
           const sample = spec.series.find((m) => m.day === day)
           const value = sample?.value ?? null
@@ -78,17 +83,20 @@ export function DayInspector({ day, isToday, specs, baselines, isClosing, onClos
           return (
             <div
               key={spec.key}
-              className="flex items-center gap-3 font-mono text-[12.5px] tabular-nums"
+              className={`stagger-in ${ROW_STAGGER[rowIdx]} flex items-center gap-3 font-mono text-[12.5px] tabular-nums`}
             >
               <div
-                className="size-3 shrink-0 rounded-[3px]"
+                key={`${day}-${spec.key}-swatch`}
+                className="size-3 shrink-0 rounded-[3px] transition-colors"
                 style={{ background: CELL_COLOR_HEX[tier] }}
               />
               <div className="w-11 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted">
                 {METRIC_LABEL[spec.key]}
               </div>
               <div className="w-14 text-sm font-medium text-ink">
-                {value !== null ? value.toFixed(spec.precision) : '—'}
+                <span key={`${day}-${spec.key}-val`} className="animate-value-swap">
+                  {value !== null ? value.toFixed(spec.precision) : '—'}
+                </span>
                 <span className="ml-1 text-[10px] text-faint">{spec.unit}</span>
               </div>
               <div className="flex-1 text-[11px] text-faint">
@@ -98,7 +106,9 @@ export function DayInspector({ day, isToday, specs, baselines, isClosing, onClos
                 </span>
               </div>
               <div className={`text-xs font-semibold ${deltaColor}`}>
-                {dev !== null ? `${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%` : '—'}
+                <span key={`${day}-${spec.key}-dev`} className="animate-value-swap">
+                  {dev !== null ? `${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%` : '—'}
+                </span>
               </div>
             </div>
           )

@@ -138,6 +138,7 @@ export function MetricChart({
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+        className="animate-draw-path"
       />
       {points.map((p, i) => {
         if (p.value === null) return null
@@ -151,7 +152,7 @@ export function MetricChart({
             fill={isLast ? lineColor : '#d8e4ed'}
             opacity={isLast ? 1 : 0.55}
             onClick={() => onSelectDay(p.day)}
-            className="cursor-pointer"
+            className={isLast ? 'cursor-pointer animate-dot-pulse' : 'cursor-pointer'}
           />
         )
       })}

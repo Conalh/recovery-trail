@@ -8,40 +8,123 @@ html, body, #root {
 }
 
 body {
-  background: #0b1015;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, #1a2028 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 50% 110%, #14171c 0%, transparent 60%),
+    #0a0c10;
   color: #d8e4ed;
   font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-@keyframes slideInTop {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-in-top {
-  animation: slideInTop 0.26s cubic-bezier(0.2, 0.7, 0.3, 1);
-}
+/* ── Animations + custom utilities, wrapped in @layer utilities so they
+   compose predictably against Tailwind's box-shadow CSS-variable system
+   instead of getting overridden by --tw-shadow defaults. ─────────────── */
+@layer utilities {
+  @keyframes slideInTop {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-in-top {
+    animation: slideInTop 0.26s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
 
-@keyframes slideOutTop {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-6px); }
-}
-.animate-slide-out-top {
-  animation: slideOutTop 0.22s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
-}
+  @keyframes slideOutTop {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+  }
+  .animate-slide-out-top {
+    animation: slideOutTop 0.22s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.animate-fade-in {
-  animation: fadeIn 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
-}
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
 
-@keyframes pulseAttention {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.6); opacity: 0.55; }
-}
-.animate-pulse-attention {
-  animation: pulseAttention 1.1s cubic-bezier(0.4, 0, 0.6, 1) 3;
+  @keyframes pulseAttention {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.6); opacity: 0.55; }
+  }
+  .animate-pulse-attention {
+    animation: pulseAttention 1.1s cubic-bezier(0.4, 0, 0.6, 1) 3;
+  }
+
+  .glow-rust {
+    box-shadow: 0 0 0 1px rgba(232, 93, 74, 0.45), 0 0 12px rgba(232, 93, 74, 0.55) !important;
+  }
+  .glow-teal {
+    box-shadow: 0 0 0 1px rgba(42, 138, 163, 0.45), 0 0 12px rgba(42, 138, 163, 0.45) !important;
+  }
+  .glow-amber {
+    box-shadow: 0 0 0 1px rgba(224, 164, 88, 0.45), 0 0 12px rgba(224, 164, 88, 0.5) !important;
+  }
+
+  .cell-selected {
+    box-shadow:
+      0 0 0 1.5px rgba(216, 228, 237, 0.95),
+      0 0 10px rgba(216, 228, 237, 0.45),
+      0 0 18px rgba(216, 228, 237, 0.18) !important;
+  }
+
+  @keyframes todayBreathe {
+    0%, 100% {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 6px rgba(255, 255, 255, 0.18);
+    }
+    50% {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 12px rgba(255, 255, 255, 0.32);
+    }
+  }
+  .cell-today {
+    animation: todayBreathe 3.6s ease-in-out infinite;
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .stagger-in {
+    opacity: 0;
+    animation: fadeSlideUp 0.46s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  }
+  .stagger-1 { animation-delay: 0ms; }
+  .stagger-2 { animation-delay: 60ms; }
+  .stagger-3 { animation-delay: 120ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 280ms; }
+  .stagger-6 { animation-delay: 60ms; }
+  .stagger-7 { animation-delay: 120ms; }
+  .stagger-8 { animation-delay: 180ms; }
+  .stagger-9 { animation-delay: 240ms; }
+
+  @keyframes drawPath {
+    to { stroke-dashoffset: 0; }
+  }
+  .animate-draw-path {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+    animation: drawPath 0.7s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes valueSwap {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-value-swap {
+    display: inline-block;
+    animation: valueSwap 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  @keyframes dotPulse {
+    0%, 100% { r: 3; opacity: 1; }
+    50%      { r: 4.2; opacity: 0.72; }
+  }
+  .animate-dot-pulse {
+    animation: dotPulse 2.4s ease-in-out infinite;
+    transform-origin: center;
+  }
 }
