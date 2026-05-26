@@ -3,6 +3,7 @@ import type { FiredRule, Recommendation, Severity } from '../rules/evaluate'
 import {
   cellTier,
   metaRule,
+  metricOfRule,
   narrative,
   type CellTier,
   type MetricKey,
@@ -60,6 +61,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const [hoveredMetric, setHoveredMetric] = useState<MetricKey | null>(null)
   const [hoveredCell, setHoveredCell] = useState<HoveredCell | null>(null)
   const [inspectorClosing, setInspectorClosing] = useState(false)
+  const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
 
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
@@ -76,6 +78,11 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const allRules = meta ? [meta, ...fired] : fired
   const badge = VERDICT_BADGE[verdict]
 
+  const focusedRule = focusedRuleId
+    ? allRules.find((r) => r.id === focusedRuleId) ?? null
+    : null
+  const focusedMetric = focusedRule ? metricOfRule(focusedRule.id) : null
+
   const closeInspector = () => {
     if (selectedDay === null) return
     setInspectorClosing(true)
@@ -86,6 +93,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   }
 
   const toggleDay = (day: string) => {
+    if (focusedRuleId) setFocusedRuleId(null)
     if (selectedDay === day) {
       closeInspector()
     } else {
@@ -94,8 +102,19 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
     }
   }
 
-  const toggleMetric = (m: MetricKey) =>
+  const toggleMetric = (m: MetricKey) => {
+    if (focusedRuleId) setFocusedRuleId(null)
     setExpandedMetric((cur) => (cur === m ? null : m))
+  }
+
+  const handleFocusRule = (id: string) => {
+    const becoming = focusedRuleId === id ? null : id
+    setFocusedRuleId(becoming)
+    if (becoming !== null) {
+      if (selectedDay) closeInspector()
+      setExpandedMetric(null)
+    }
+  }
 
   const hintLabel = (() => {
     if (hoveredCell) {
@@ -109,9 +128,10 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
       const devStr = dev !== null ? ` ${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%` : ''
       return `${shortDay(day)} · ${METRIC_ROW_LABEL[metric]} ${valStr}${spec.unit}${devStr}`
     }
+    if (focusedRule) return 'rule focused · tap again to clear'
     if (expandedMetric !== null) return 'metric expanded'
     if (selectedDay !== null) return 'day selected'
-    return 'tap a cell or row'
+    return 'tap a cell, row, or rule'
   })()
 
   return (
@@ -172,9 +192,21 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
             const isBad = dev !== null && polaritySigned * dev > 3
             const isGood = dev !== null && polaritySigned * dev < -3
             const isExpanded = expandedMetric === spec.key
-            const isRowDimmed =
-              hoveredMetric !== null && hoveredMetric !== spec.key
-            const isRowHighlighted = hoveredMetric === spec.key
+            // Rule focus drives base dim state; hover overrides only when
+            // no rule is focused, matching the prototype's interaction
+            // hierarchy.
+            let isRowDimmed = false
+            let isRowHighlighted = false
+            if (focusedRule) {
+              if (focusedMetric) {
+                isRowDimmed = focusedMetric !== spec.key
+                isRowHighlighted = focusedMetric === spec.key
+              }
+              // meta-rule (focusedMetric === null) leaves all rows bright
+            } else if (hoveredMetric) {
+              isRowDimmed = hoveredMetric !== spec.key
+              isRowHighlighted = hoveredMetric === spec.key
+            }
 
             return (
               <div
@@ -294,7 +326,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </h3>
         <ul className="mt-1 divide-y divide-panelLine">
           {allRules.map((rule) => (
-            <RuleRow key={rule.id} rule={rule} />
+            <RuleRow
+              key={rule.id}
+              rule={rule}
+              focused={focusedRuleId === rule.id}
+              onClick={() => handleFocusRule(rule.id)}
+            />
           ))}
         </ul>
       </div>
@@ -302,14 +339,38 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   )
 }
 
-function RuleRow({ rule }: { rule: FiredRule }) {
+type RuleRowProps = {
+  rule: FiredRule
+  focused: boolean
+  onClick: () => void
+}
+
+function RuleRow({ rule, focused, onClick }: RuleRowProps) {
   const isMeta = rule.id === 'meta_recovery_stack'
   const sev = rule.severity === 'deload' ? 'text-rust border-rust' : 'text-amber border-amber'
+  const focusBorder = rule.severity === 'deload' ? 'border-l-rust' : 'border-l-amber'
   const hoverBorder = rule.severity === 'deload' ? 'hover:border-l-rust' : 'hover:border-l-amber'
+  const focusBg = rule.severity === 'deload' ? 'bg-rust/[0.07]' : 'bg-amber/[0.06]'
   const evidenceLine = isMeta ? null : formatEvidenceLine(rule)
+
+  const borderClass = focused
+    ? `border-l-2 ${focusBorder}`
+    : `border-l-2 border-l-transparent ${hoverBorder}`
+  const bgClass = focused ? focusBg : 'hover:bg-white/[0.02]'
+
   return (
     <li
-      className={`cursor-pointer border-l-2 border-l-transparent px-2 py-3 transition-colors hover:bg-white/[0.02] ${hoverBorder}`}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={focused}
+      className={`cursor-pointer px-2 py-3 transition-colors ${borderClass} ${bgClass}`}
     >
       <div className="flex items-center gap-2">
         <span
