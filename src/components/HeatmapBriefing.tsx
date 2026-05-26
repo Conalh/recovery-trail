@@ -64,6 +64,8 @@ type HoveredCell = {
 
 const INSPECTOR_EXIT_MS = 220
 const ROW_STAGGER_CLASSES = ['stagger-6', 'stagger-7', 'stagger-8', 'stagger-9']
+type WindowSize = 14 | 28
+const WINDOW_OPTIONS: WindowSize[] = [14, 28]
 
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const { series, fired, verdict, asOfDay } = recommendation
@@ -73,6 +75,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const [hoveredCell, setHoveredCell] = useState<HoveredCell | null>(null)
   const [inspectorClosing, setInspectorClosing] = useState(false)
   const [focusedRuleId, setFocusedRuleId] = useState<string | null>(null)
+  const [windowSize, setWindowSize] = useState<WindowSize>(14)
 
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
@@ -81,7 +84,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
     { key: 'load', label: 'Load', unit: 'min', series: series.workoutMin, higherIsBetter: false, precision: 0 },
   ]
 
-  const days = collectLast14Days(specs, asOfDay)
+  const days = collectLastNDays(specs, asOfDay, windowSize)
   const baselines = computeBaselines(specs)
   const todayIso = days[days.length - 1] ?? asOfDay
   const summary = narrative(specs, asOfDay)
@@ -201,8 +204,31 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
     <div className="space-y-5">
       <div className="stagger-in stagger-1 flex items-start justify-between gap-4">
         <div>
-          <div className="text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
-            recovery-trail · 14d
+          <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+            <span>recovery-trail</span>
+            <span className="text-fainter">·</span>
+            <div
+              className="inline-flex overflow-hidden rounded border border-fainter"
+              role="tablist"
+              aria-label="window size"
+            >
+              {WINDOW_OPTIONS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  role="tab"
+                  aria-selected={windowSize === w}
+                  onClick={() => setWindowSize(w)}
+                  className={`px-1.5 py-[1px] font-mono text-[10px] tracking-[0.05em] transition-colors ${
+                    windowSize === w
+                      ? 'bg-white/[0.07] text-ink'
+                      : 'text-muted hover:bg-white/[0.03] hover:text-ink'
+                  }`}
+                >
+                  {w}d
+                </button>
+              ))}
+            </div>
           </div>
           <h2 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
             Briefing
@@ -315,7 +341,10 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                   </div>
                 ) : (
                   <div
-                    className="animate-fade-in grid grid-flow-col grid-cols-[repeat(14,minmax(0,1fr))] gap-[2px]"
+                    className="animate-fade-in grid grid-flow-col gap-[2px]"
+                    style={{
+                      gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
+                    }}
                     onMouseLeave={() => setHoveredCell(null)}
                   >
                     {days.map((day) => {
@@ -525,13 +554,13 @@ function formatSignedSd(n: number): string {
   return `${sign}${n.toFixed(2)}`
 }
 
-function collectLast14Days(specs: MetricSpec[], asOfDay: string): string[] {
+function collectLastNDays(specs: MetricSpec[], asOfDay: string, n: number): string[] {
   const set = new Set<string>()
-  for (const s of specs) for (const m of s.series.slice(-14)) set.add(m.day)
+  for (const s of specs) for (const m of s.series.slice(-n)) set.add(m.day)
   return Array.from(set)
     .filter((d) => d <= asOfDay)
     .sort()
-    .slice(-14)
+    .slice(-n)
 }
 
 function computeBaselines(specs: MetricSpec[]): Record<MetricKey, number | null> {
