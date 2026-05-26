@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FiredRule, Recommendation, Severity } from '../rules/evaluate'
 import {
   cellTier,
@@ -115,6 +115,60 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
       setExpandedMetric(null)
     }
   }
+
+  // Keyboard navigation: arrows step days, Esc closes top-of-stack,
+  // digits 1-4 toggle metric rows.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement) {
+        const tag = e.target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+      }
+
+      if (e.key === 'Escape') {
+        if (selectedDay) {
+          closeInspector()
+          e.preventDefault()
+        } else if (expandedMetric) {
+          setExpandedMetric(null)
+          e.preventDefault()
+        } else if (focusedRuleId) {
+          setFocusedRuleId(null)
+          e.preventDefault()
+        }
+        return
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (days.length === 0) return
+        const dir = e.key === 'ArrowRight' ? 1 : -1
+        const baseIdx = selectedDay ? days.indexOf(selectedDay) : days.length - 1
+        const nextIdx = Math.max(0, Math.min(days.length - 1, baseIdx + dir))
+        const nextDay = days[nextIdx]
+        if (nextDay) {
+          if (focusedRuleId) setFocusedRuleId(null)
+          setSelectedDay(nextDay)
+          setInspectorClosing(false)
+        }
+        e.preventDefault()
+        return
+      }
+
+      if (e.key >= '1' && e.key <= '4') {
+        const idx = Number(e.key) - 1
+        const metric: MetricKey | undefined = (
+          ['hrv', 'rhr', 'sleep', 'load'] as MetricKey[]
+        )[idx]
+        if (metric) {
+          toggleMetric(metric)
+          e.preventDefault()
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay, expandedMetric, focusedRuleId, days.join('|')])
 
   const hintLabel = (() => {
     if (hoveredCell) {
@@ -233,8 +287,21 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
                       days={days}
                       baseline={baseline}
                       selectedDay={selectedDay}
+                      hoveredDay={
+                        hoveredCell && hoveredCell.metric === spec.key
+                          ? hoveredCell.day
+                          : null
+                      }
                       badToday={isBad}
                       onSelectDay={toggleDay}
+                      onHoverDay={(day) => {
+                        if (day === null) {
+                          setHoveredCell(null)
+                        } else {
+                          const v = valueByDay.get(day) ?? null
+                          setHoveredCell({ day, metric: spec.key, value: v, spec })
+                        }
+                      }}
                     />
                   </div>
                 ) : (

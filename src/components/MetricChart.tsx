@@ -4,11 +4,15 @@ type Props = {
   spec: MetricSpec
   days: string[]
   baseline: number | null
-  /** Currently selected day, or null. Renders a vertical line if set. */
+  /** Currently selected day, or null. Solid vertical line if set. */
   selectedDay: string | null
+  /** Day under the cursor, or null. Dashed vertical line if set. */
+  hoveredDay: string | null
   /** Color the line rust if bad-today, teal otherwise. */
   badToday: boolean
   onSelectDay: (day: string) => void
+  /** Called with the day under the cursor on mousemove, or null on leave. */
+  onHoverDay: (day: string | null) => void
 }
 
 const WIDTH = 268
@@ -17,15 +21,19 @@ const PAD = { left: 6, right: 6, top: 10, bottom: 12 }
 
 /**
  * In-row line chart shown when a metric label is tapped. Replaces the
- * heatmap cells for that row. Dots are clickable to select a day.
+ * heatmap cells for that row. Dots are clickable to select a day;
+ * mousemove reports the nearest day to the parent for the hint line +
+ * a dashed vertical guide.
  */
 export function MetricChart({
   spec,
   days,
   baseline,
   selectedDay,
+  hoveredDay,
   badToday,
   onSelectDay,
+  onHoverDay,
 }: Props) {
   const valueByDay = new Map(spec.series.map((m) => [m.day, m.value]))
   const points = days.map((day) => ({ day, value: valueByDay.get(day) ?? null }))
@@ -65,14 +73,26 @@ export function MetricChart({
   const baselineY = sy(baseline)
   const lastIdx = points.length - 1
 
-  // 7-day window shading: highlight the rightmost 7 days.
   const windowStart = Math.max(0, days.length - 7)
   const winX0 = sx(windowStart)
   const winX1 = sx(lastIdx)
 
   const lineColor = badToday ? '#e85d4a' : '#2a8aa3'
-  const selectedIdx =
-    selectedDay !== null ? days.indexOf(selectedDay) : -1
+  const selectedIdx = selectedDay !== null ? days.indexOf(selectedDay) : -1
+  const hoveredIdx = hoveredDay !== null ? days.indexOf(hoveredDay) : -1
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (days.length <= 1) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const xPx = e.clientX - rect.left
+    const viewBoxX = (xPx / rect.width) * WIDTH
+    const fractional = (viewBoxX - PAD.left) / innerW
+    const nearest = Math.round(
+      Math.max(0, Math.min(days.length - 1, fractional * (days.length - 1))),
+    )
+    const day = days[nearest]
+    if (day !== hoveredDay) onHoverDay(day)
+  }
 
   return (
     <svg
@@ -81,6 +101,8 @@ export function MetricChart({
       preserveAspectRatio="none"
       role="img"
       aria-label={`${spec.label} over the last ${days.length} days`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => onHoverDay(null)}
     >
       <rect
         x={winX0}
@@ -133,6 +155,18 @@ export function MetricChart({
           />
         )
       })}
+      {hoveredIdx >= 0 && hoveredIdx !== selectedIdx && (
+        <line
+          x1={sx(hoveredIdx)}
+          x2={sx(hoveredIdx)}
+          y1={PAD.top}
+          y2={HEIGHT - PAD.bottom}
+          stroke="#d8e4ed"
+          strokeWidth={1}
+          strokeDasharray="2 3"
+          opacity={0.5}
+        />
+      )}
       {selectedIdx >= 0 && (
         <line
           x1={sx(selectedIdx)}
