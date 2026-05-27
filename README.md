@@ -8,6 +8,10 @@ client-side.
 
 🔗 **Live:** [conalh.github.io/recovery-trail](https://conalh.github.io/recovery-trail/) — there's a "Try with sample data" button on the import screen.
 
+<p align="center">
+  <img src="./docs/media/recovery-trail-hero.png" alt="recovery-trail briefing dashboard showing a deload verdict, recovery heatmap, and metric deviations" width="100%">
+</p>
+
 ---
 
 ## What you see
@@ -35,6 +39,11 @@ The briefing view is a single page, mobile-first:
 When ≥3 rules fire across ≥3 metrics, a synthesized **meta-rule**
 ("Recovery stack is down across the board") gets prepended to frame
 the situation rather than recite numbers.
+
+<p align="center">
+  <img src="./docs/media/recovery-trail-metric-expanded.png" alt="Expanded metric view showing the 28-day HRV trend chart and recovery deviations" width="48%">
+  <img src="./docs/media/recovery-trail-rules.png" alt="Rules fired view showing deload and caution recommendations with supporting trend evidence" width="48%">
+</p>
 
 ## How the reasoning works — engine v2
 
