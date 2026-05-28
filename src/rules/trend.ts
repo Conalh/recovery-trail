@@ -30,6 +30,8 @@
  * EWMA smoother halves slope variance vs raw OLS.
  */
 
+import { diffDays } from './aggregate'
+
 export type TrendSeverity = 'mild' | 'moderate' | 'severe'
 
 /** Acute (7d OLS) thresholds in SD/day. Magnitude, signed against the "bad" direction. */
@@ -115,13 +117,18 @@ function ewmaSmoothed(values: number[], halflife: number): number[] {
 }
 
 /**
- * Compute the OLS slope on a daily series. Pass dense daily values
- * (oldest-first); the x-vector is just 0..n-1.
+ * OLS slope of `values` against real day offsets. `daysX[i]` is the integer
+ * number of days between reading i and the first reading in the window, so
+ * gaps in a sparse series don't compress the time axis and inflate the
+ * per-day slope. Matches fit-ontology's `(dates - dates.iloc[0]).dt.days`.
  */
-export function computeOlsSlope(values: number[], windowDays: number): SlopeResult | null {
+export function computeOlsSlope(
+  daysX: number[],
+  values: number[],
+  windowDays: number,
+): SlopeResult | null {
   if (values.length < MIN_SAMPLES) return null
-  const xs = values.map((_, i) => i)
-  const slope = olsSlope(xs, values)
+  const slope = olsSlope(daysX, values)
   if (slope === null) return null
   return {
     slopePerDay: slope,
@@ -133,15 +140,20 @@ export function computeOlsSlope(values: number[], windowDays: number): SlopeResu
 }
 
 /**
- * Compute EWMA-smoothed-then-OLS slope. Short windows are returned with
- * confidenceWeight ramped to 0 (matches engine v2's EWMA_MIN_SAMPLES=14
- * ramp-up).
+ * Compute EWMA-smoothed-then-OLS slope. The smoother runs over the
+ * date-ordered values (row order, matching pandas `.ewm(halflife=10)`), then
+ * the slope is taken against real day offsets (`daysX`, see computeOlsSlope).
+ * Short windows are returned with confidenceWeight ramped to 0 (matches
+ * engine v2's EWMA_MIN_SAMPLES=14 ramp-up).
  */
-export function computeEwmaSlope(values: number[], windowDays: number): SlopeResult | null {
+export function computeEwmaSlope(
+  daysX: number[],
+  values: number[],
+  windowDays: number,
+): SlopeResult | null {
   if (values.length < MIN_SAMPLES) return null
   const smoothed = ewmaSmoothed(values, EWMA_HALFLIFE_DAYS)
-  const xs = smoothed.map((_, i) => i)
-  const slope = olsSlope(xs, smoothed)
+  const slope = olsSlope(daysX, smoothed)
   if (slope === null) return null
   const minSamples = 14
   let weight: number
@@ -269,13 +281,39 @@ export type TrendDetectionResult = {
   chronicRawPerDay: number | null
 }
 
+/** Entries of `series` within [end - windowDays + 1, end], oldest-first. */
+function windowByDate(
+  series: ReadonlyArray<{ day: string; value: number }>,
+  end: string,
+  windowDays: number,
+): { day: string; value: number }[] {
+  return series
+    .filter((m) => {
+      const gap = diffDays(end, m.day)
+      return gap >= 0 && gap < windowDays
+    })
+    .slice()
+    .sort((a, b) => (a.day < b.day ? -1 : 1))
+}
+
+/** Integer day offsets from the window's first day (0-based). */
+function dayOffsets(window: ReadonlyArray<{ day: string }>): number[] {
+  if (window.length === 0) return []
+  const first = window[0].day
+  return window.map((m) => diffDays(m.day, first))
+}
+
 /**
- * Run the dual-window detector on a metric. Pass the daily series
- * (oldest-first, ending today) and the baseline SD computed over the
- * 28-day window. `higherIsBetter` controls the "bad direction" sign.
+ * Run the dual-window detector on a metric. Pass the sparse daily series
+ * ({day, value} per reading, oldest-first) plus `asOf` (the verdict date).
+ * The acute and chronic windows are selected BY DATE and slopes are taken
+ * against real day offsets, so missing days don't stretch the window or
+ * distort the SD/day estimate. `baselineSd` is the SD over the baseline
+ * window; `higherIsBetter` controls the "bad direction" sign.
  */
 export function detectTrend(
-  series: number[],
+  series: ReadonlyArray<{ day: string; value: number }>,
+  asOf: string,
   baselineSd: number | null,
   higherIsBetter: boolean,
 ): TrendDetectionResult {
@@ -291,11 +329,19 @@ export function detectTrend(
   }
   if (!baselineSd || baselineSd === 0) return empty
 
-  const acuteWindow = series.slice(-ACUTE_WINDOW_DAYS)
-  const chronicWindow = series.slice(-CHRONIC_WINDOW_DAYS)
+  const acuteWindow = windowByDate(series, asOf, ACUTE_WINDOW_DAYS)
+  const chronicWindow = windowByDate(series, asOf, CHRONIC_WINDOW_DAYS)
 
-  const acuteResult = computeOlsSlope(acuteWindow, ACUTE_WINDOW_DAYS)
-  const chronicResult = computeEwmaSlope(chronicWindow, CHRONIC_WINDOW_DAYS)
+  const acuteResult = computeOlsSlope(
+    dayOffsets(acuteWindow),
+    acuteWindow.map((m) => m.value),
+    ACUTE_WINDOW_DAYS,
+  )
+  const chronicResult = computeEwmaSlope(
+    dayOffsets(chronicWindow),
+    chronicWindow.map((m) => m.value),
+    CHRONIC_WINDOW_DAYS,
+  )
 
   // Sign in the "bad" direction: higher-is-better metrics are bad when
   // slope is negative; lower-is-better metrics are bad when slope is

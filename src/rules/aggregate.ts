@@ -111,6 +111,21 @@ export function windowMean(
   return count === 0 ? { mean: 0, count: 0 } : { mean: sum / count, count }
 }
 
+/** Values from `metrics` that fall in [end-windowDays+1, end] inclusive, oldest-first. */
+export function windowValues(
+  metrics: DailyMetric[],
+  end: string,
+  windowDays: number,
+): number[] {
+  const out: number[] = []
+  for (const m of metrics) {
+    const gap = diffDays(end, m.day)
+    if (gap < 0 || gap >= windowDays) continue
+    out.push(m.value)
+  }
+  return out
+}
+
 /** Sum of values from `metrics` that fall in [end-windowDays+1, end] inclusive. */
 export function windowSum(
   metrics: DailyMetric[],

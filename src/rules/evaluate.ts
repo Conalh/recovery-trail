@@ -8,6 +8,7 @@ import {
   latestDay,
   windowMean,
   windowSum,
+  windowValues,
   type DailyMetric,
 } from './aggregate'
 import {
@@ -73,23 +74,21 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   const sleepHours = dailySleepHours(parsed.sleep)
   const workoutMin = dailyWorkoutMinutes(parsed.workouts)
 
-  // 28-day baselines: mean for context, SD for slope normalization.
+  // 28-day baselines: mean for context, SD for slope normalization. SD is
+  // taken over the same date window as the mean (not the last N readings),
+  // so gaps don't change the denominator the slope is normalized by.
   const hrvBase = windowMean(hrv, asOfDay, thresholds.hrv.baselineWindowDays)
-  const hrvBaseSd = populationStdDev(
-    hrv.slice(-thresholds.hrv.baselineWindowDays).map((m) => m.value),
-  )
+  const hrvBaseSd = populationStdDev(windowValues(hrv, asOfDay, thresholds.hrv.baselineWindowDays))
   const rhrBase = windowMean(rhr, asOfDay, thresholds.rhr.baselineWindowDays)
-  const rhrBaseSd = populationStdDev(
-    rhr.slice(-thresholds.rhr.baselineWindowDays).map((m) => m.value),
-  )
+  const rhrBaseSd = populationStdDev(windowValues(rhr, asOfDay, thresholds.rhr.baselineWindowDays))
   const sleepBaseSd = populationStdDev(
-    sleepHours.slice(-thresholds.sleep.windowDays * 4).map((m) => m.value),
+    windowValues(sleepHours, asOfDay, thresholds.sleep.windowDays * 4),
   )
 
   // Engine v2 dual-window detectors for HRV / RHR / sleep.
-  const hrvTrend = detectTrend(hrv.map((m) => m.value), hrvBaseSd, true)
-  const rhrTrend = detectTrend(rhr.map((m) => m.value), rhrBaseSd, false)
-  const sleepTrend = detectTrend(sleepHours.map((m) => m.value), sleepBaseSd, true)
+  const hrvTrend = detectTrend(hrv, asOfDay, hrvBaseSd, true)
+  const rhrTrend = detectTrend(rhr, asOfDay, rhrBaseSd, false)
+  const sleepTrend = detectTrend(sleepHours, asOfDay, sleepBaseSd, true)
 
   // Composite recovery score for the level-dominates safety rule.
   const hrvShort = windowMean(hrv, asOfDay, thresholds.hrv.shortWindowDays)
