@@ -1,5 +1,4 @@
 import type { ParsedExport } from '../lib/types'
-import { instantFromEpoch } from '../lib/appleHealthDate'
 import thresholds from './thresholds.json'
 import {
   dailyHrv,
@@ -207,10 +206,14 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   // the ratio already divides by calendar days — so eligibility must be too.
   const acute = windowSum(workoutMin, asOfDay, thresholds.workout.acuteDays)
   const chronic = windowSum(workoutMin, asOfDay, thresholds.workout.chronicDays)
+  // Coverage = whole days spanned by the data, measured from the instants
+  // themselves. Deriving a calendar day from range.startMs would re-introduce a
+  // timezone dependency (an evening sample rolls to the next UTC day), so the
+  // verdict must not hinge on it — compare instants directly.
   const chronicCoverageDays = parsed.range
     ? Math.min(
         thresholds.workout.chronicDays,
-        diffDays(asOfDay, instantFromEpoch(parsed.range.startMs).sourceDay) + 1,
+        Math.floor((parsed.range.endMs - parsed.range.startMs) / 86_400_000) + 1,
       )
     : 0
   if (
