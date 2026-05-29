@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -8,5 +9,11 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   worker: {
     format: 'es',
+  },
+  test: {
+    // Date bucketing is offset-derived (timezone-independent) by design; pin TZ
+    // anyway so any future locale-sensitive assertion stays deterministic in CI.
+    environment: 'node',
+    env: { TZ: 'America/Los_Angeles' },
   },
 }))
