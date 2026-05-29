@@ -1,4 +1,5 @@
 import type { ParsedExport } from './types'
+import { instantFromEpoch } from './appleHealthDate'
 
 /**
  * Deterministic synthetic Apple Health export — 30 days ending today,
@@ -24,7 +25,7 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
     const hrvDip = -9 * recentProgress
     const hrvValue = Math.max(20, hrvBase + hrvDip + hrvNoise)
     out.hrv.push({
-      startDate: atHour(date, 4).toISOString(),
+      start: instantFromEpoch(atHour(date, 4).getTime()),
       valueMs: round1(hrvValue),
       source: 'Apple Watch',
     })
@@ -34,7 +35,7 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
     const rhrNoise = (rng() - 0.5) * 1.5
     const rhrUp = 6 * recentProgress
     out.rhr.push({
-      startDate: atHour(date, 5).toISOString(),
+      start: instantFromEpoch(atHour(date, 5).getTime()),
       valueBpm: Math.round(rhrBase + rhrUp + rhrNoise),
       source: 'Apple Watch',
     })
@@ -47,8 +48,8 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
     const sleepEnd = atHour(date, 7)
     const sleepStart = new Date(sleepEnd.getTime() - sleepHours * 3_600_000)
     out.sleep.push({
-      startDate: sleepStart.toISOString(),
-      endDate: sleepEnd.toISOString(),
+      start: instantFromEpoch(sleepStart.getTime()),
+      end: instantFromEpoch(sleepEnd.getTime()),
       stage: 'asleepUnspecified',
       source: 'Apple Watch',
     })
@@ -59,8 +60,8 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
       const start = atHour(date, 18)
       const end = new Date(start.getTime() + dur * 60_000)
       out.workouts.push({
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        start: instantFromEpoch(start.getTime()),
+        end: instantFromEpoch(end.getTime()),
         activity: 'running',
         durationMin: dur,
         source: 'Apple Watch',
@@ -68,19 +69,22 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
     }
   }
 
-  out.range = { start: out.hrv[0].startDate, end: out.hrv.at(-1)!.startDate }
+  out.range = {
+    startMs: out.hrv[0].start.instantMs,
+    endMs: out.hrv.at(-1)!.start.instantMs,
+  }
   return out
 }
 
 function addDays(d: Date, n: number): Date {
   const c = new Date(d)
-  c.setDate(c.getDate() + n)
+  c.setUTCDate(c.getUTCDate() + n)
   return c
 }
 
 function atHour(d: Date, h: number): Date {
   const c = new Date(d)
-  c.setHours(h, 0, 0, 0)
+  c.setUTCHours(h, 0, 0, 0)
   return c
 }
 

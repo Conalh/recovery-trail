@@ -1,33 +1,33 @@
 import type { HrvSample, ParsedExport, RhrSample, SleepSample, WorkoutSample } from '../lib/types'
 
-/** Return the calendar-day ISO date (YYYY-MM-DD) of an ISO timestamp in local time. */
-export function dayKey(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
+/**
+ * Add `n` days to a YYYY-MM-DD day string. UTC arithmetic on the date
+ * components, so it is locale- and DST-independent.
+ */
 export function addDays(dayIso: string, n: number): string {
-  const d = new Date(dayIso + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return dayKey(d.toISOString())
+  const [y, m, d] = dayIso.split('-').map(Number)
+  const t = Date.UTC(y, m - 1, d) + n * 86_400_000
+  const dt = new Date(t)
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`
 }
 
+/** Whole-day difference (later - earlier) between two YYYY-MM-DD strings, UTC-based. */
 export function diffDays(later: string, earlier: string): number {
-  const a = new Date(later + 'T00:00:00').getTime()
-  const b = new Date(earlier + 'T00:00:00').getTime()
-  return Math.round((a - b) / 86_400_000)
+  const [ly, lm, ld] = later.split('-').map(Number)
+  const [ey, em, ed] = earlier.split('-').map(Number)
+  return Math.round((Date.UTC(ly, lm - 1, ld) - Date.UTC(ey, em - 1, ed)) / 86_400_000)
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0')
 }
 
 export type DailyMetric = { day: string; value: number; sampleCount: number }
 
-/** Mean of valueMs per calendar day. */
+/** Mean of valueMs per calendar day (the sample's source day). */
 export function dailyHrv(samples: HrvSample[]): DailyMetric[] {
   return reduceByDay(
-    samples.map((s) => ({ day: dayKey(s.startDate), value: s.valueMs })),
+    samples.map((s) => ({ day: s.start.sourceDay, value: s.valueMs })),
     'mean',
   )
 }
@@ -35,39 +35,59 @@ export function dailyHrv(samples: HrvSample[]): DailyMetric[] {
 /** Minimum BPM per calendar day (Apple records many resting-HR samples; the minimum is the most resting). */
 export function dailyRhr(samples: RhrSample[]): DailyMetric[] {
   return reduceByDay(
-    samples.map((s) => ({ day: dayKey(s.startDate), value: s.valueBpm })),
+    samples.map((s) => ({ day: s.start.sourceDay, value: s.valueBpm })),
     'min',
   )
 }
 
 /**
- * Sum of asleep durations (hours) per "wake day" — sleep that ends on day D
- * is counted toward day D's recovery picture. Excludes inBed / awake stages.
+ * Sum of asleep durations (hours) per "wake day" — sleep that ends on day D is
+ * counted toward day D's recovery picture. Overlapping intervals (e.g. a stage
+ * record nested inside an aggregate record, or duplicates from two sources) are
+ * MERGED before summing so total sleep is never double-counted. Excludes
+ * inBed / awake stages.
  */
 export function dailySleepHours(samples: SleepSample[]): DailyMetric[] {
   const asleep = samples.filter((s) => s.stage.startsWith('asleep'))
-  const perDay = new Map<string, { value: number; sampleCount: number }>()
+  const perDay = new Map<string, Array<[number, number]>>()
   for (const s of asleep) {
-    const day = dayKey(s.endDate)
+    const day = s.end.sourceDay
     if (!day) continue
-    const start = Date.parse(s.startDate)
-    const end = Date.parse(s.endDate)
+    const start = s.start.instantMs
+    const end = s.end.instantMs
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue
-    const hours = (end - start) / 3_600_000
-    const cur = perDay.get(day) ?? { value: 0, sampleCount: 0 }
-    cur.value += hours
-    cur.sampleCount += 1
-    perDay.set(day, cur)
+    const arr = perDay.get(day) ?? []
+    arr.push([start, end])
+    perDay.set(day, arr)
   }
   return Array.from(perDay.entries())
-    .map(([day, v]) => ({ day, value: v.value, sampleCount: v.sampleCount }))
+    .map(([day, intervals]) => {
+      const ms = mergeIntervals(intervals).reduce((acc, [s, e]) => acc + (e - s), 0)
+      return { day, value: ms / 3_600_000, sampleCount: intervals.length }
+    })
     .sort((a, b) => (a.day < b.day ? -1 : 1))
+}
+
+/** Merge overlapping/adjacent [start, end] intervals into a minimal disjoint set. */
+function mergeIntervals(intervals: Array<[number, number]>): Array<[number, number]> {
+  if (intervals.length <= 1) return intervals
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = [[sorted[0][0], sorted[0][1]]]
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1]
+    if (sorted[i][0] <= last[1]) {
+      last[1] = Math.max(last[1], sorted[i][1])
+    } else {
+      merged.push([sorted[i][0], sorted[i][1]])
+    }
+  }
+  return merged
 }
 
 /** Sum of workout durations (minutes) per calendar day. */
 export function dailyWorkoutMinutes(samples: WorkoutSample[]): DailyMetric[] {
   return reduceByDay(
-    samples.map((s) => ({ day: dayKey(s.startDate), value: s.durationMin })),
+    samples.map((s) => ({ day: s.start.sourceDay, value: s.durationMin })),
     'sum',
   )
 }
@@ -85,10 +105,12 @@ function reduceByDay(
   }
   const out: DailyMetric[] = []
   for (const [day, values] of acc) {
-    let v = 0
-    if (mode === 'mean') v = values.reduce((a, b) => a + b, 0) / values.length
-    else if (mode === 'min') v = Math.min(...values)
-    else v = values.reduce((a, b) => a + b, 0)
+    const v =
+      mode === 'mean'
+        ? values.reduce((a, b) => a + b, 0) / values.length
+        : mode === 'min'
+          ? Math.min(...values)
+          : values.reduce((a, b) => a + b, 0)
     out.push({ day, value: v, sampleCount: values.length })
   }
   return out.sort((a, b) => (a.day < b.day ? -1 : 1))
@@ -109,6 +131,21 @@ export function windowMean(
     count += 1
   }
   return count === 0 ? { mean: 0, count: 0 } : { mean: sum / count, count }
+}
+
+/**
+ * Mean of `metrics` over the [end-windowDays+1, end] calendar window, or null
+ * when the window holds no readings. This is the single baseline definition
+ * shared by the rule engine and the UI (heatmap / narrative) so they never
+ * disagree on what "baseline" means for a sparse series.
+ */
+export function baselineMean(
+  metrics: DailyMetric[],
+  end: string,
+  windowDays: number,
+): number | null {
+  const r = windowMean(metrics, end, windowDays)
+  return r.count === 0 ? null : r.mean
 }
 
 /** Values from `metrics` that fall in [end-windowDays+1, end] inclusive, oldest-first. */
@@ -146,10 +183,10 @@ export function windowSum(
 /** Returns the latest day across all metric series in a ParsedExport, or null. */
 export function latestDay(parsed: ParsedExport): string | null {
   const candidates: string[] = []
-  for (const s of parsed.hrv) candidates.push(dayKey(s.startDate))
-  for (const s of parsed.rhr) candidates.push(dayKey(s.startDate))
-  for (const s of parsed.sleep) candidates.push(dayKey(s.endDate))
-  for (const s of parsed.workouts) candidates.push(dayKey(s.startDate))
+  for (const s of parsed.hrv) candidates.push(s.start.sourceDay)
+  for (const s of parsed.rhr) candidates.push(s.start.sourceDay)
+  for (const s of parsed.sleep) candidates.push(s.end.sourceDay)
+  for (const s of parsed.workouts) candidates.push(s.start.sourceDay)
   if (candidates.length === 0) return null
   return candidates.reduce((a, b) => (a > b ? a : b))
 }

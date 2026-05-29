@@ -1,22 +1,23 @@
+import type { Instant } from './appleHealthDate'
+
 export type HrvSample = {
-  /** ISO date of the start of the measurement (UTC). */
-  startDate: string
+  /** Normalized start instant (parsed from the export at ingest). */
+  start: Instant
   /** SDNN in milliseconds. */
   valueMs: number
   source: string
 }
 
 export type RhrSample = {
-  startDate: string
+  start: Instant
   /** Beats per minute. */
   valueBpm: number
   source: string
 }
 
 export type SleepSample = {
-  /** ISO timestamp. */
-  startDate: string
-  endDate: string
+  start: Instant
+  end: Instant
   /** Asleep / inBed / awake / deep / core / rem. */
   stage: SleepStage
   source: string
@@ -31,8 +32,8 @@ export type SleepStage =
   | 'awake'
 
 export type WorkoutSample = {
-  startDate: string
-  endDate: string
+  start: Instant
+  end: Instant
   /** Workout activity type, normalized to a lowercase string. */
   activity: string
   durationMin: number
@@ -44,8 +45,8 @@ export type ParsedExport = {
   rhr: RhrSample[]
   sleep: SleepSample[]
   workouts: WorkoutSample[]
-  /** Inclusive [min, max] of all timestamps seen, ISO strings. */
-  range: { start: string; end: string } | null
+  /** Inclusive [min, max] epoch ms across every start/end instant seen. */
+  range: { startMs: number; endMs: number } | null
 }
 
 export type ParserProgress = {

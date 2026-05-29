@@ -1,20 +1,23 @@
 {
-  "_source": "Derived from fit-ontology's ACSM-aligned defaults. Tunable.",
+  "_source": "Derived from fit-ontology's ACSM-aligned defaults. Tunable — single source of truth for the level-rule thresholds the engine fires on.",
   "hrv": {
     "shortWindowDays": 7,
     "baselineWindowDays": 28,
-    "deloadRatio": 0.80,
-    "cautionRatio": 0.90
+    "minShortSamples": 3,
+    "dropSdCaution": 1.0,
+    "dropSdDeload": 2.5
   },
   "rhr": {
     "shortWindowDays": 7,
     "baselineWindowDays": 28,
-    "cautionRatio": 1.05,
-    "deloadRatio": 1.10
+    "minShortSamples": 3,
+    "riseBpmCaution": 3,
+    "riseBpmDeload": 8
   },
   "sleep": {
     "windowDays": 7,
-    "cautionMinHours": 6.5,
+    "minRecentNights": 3,
+    "cautionMinHours": 7.0,
     "deloadMinHours": 6.0,
     "minLowNights": 3,
     "lowNightHours": 6.0
@@ -22,6 +25,8 @@
   "workout": {
     "acuteDays": 7,
     "chronicDays": 28,
+    "minChronicCoverageDays": 28,
+    "minChronicWorkoutDays": 4,
     "highAcwr": 1.5,
     "veryHighAcwr": 1.8
   }

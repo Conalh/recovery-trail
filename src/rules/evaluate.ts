@@ -1,10 +1,12 @@
 import type { ParsedExport } from '../lib/types'
+import { instantFromEpoch } from '../lib/appleHealthDate'
 import thresholds from './thresholds.json'
 import {
   dailyHrv,
   dailyRhr,
   dailySleepHours,
   dailyWorkoutMinutes,
+  diffDays,
   latestDay,
   windowMean,
   windowSum,
@@ -61,6 +63,19 @@ export type Recommendation = {
   recoveryScore: number | null
   /** Whether the level-dominates safety rule demoted trend signals. */
   levelDominates: boolean
+  /**
+   * True when the 7-day window held fewer than the minimum recent readings, so
+   * the HRV/RHR level checks were skipped and that marker was omitted from the
+   * composite score. The UI surfaces an "insufficient recent data" note rather
+   * than treating the gap as a catastrophic drop.
+   */
+  insufficientData: { hrv: boolean; rhr: boolean }
+  /**
+   * Display baselines per metric, computed over the same 28-day calendar window
+   * the rule engine uses (NOT last-N-samples), so the heatmap/narrative agree
+   * with the rule cards. null when the window holds no readings.
+   */
+  baselines: { hrv: number | null; rhr: number | null; sleep: number | null; load: number | null }
 }
 
 const TREND_RULE_IDS = new Set(['hrv_trend', 'rhr_trend', 'sleep_trend'])
@@ -81,9 +96,10 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   const hrvBaseSd = populationStdDev(windowValues(hrv, asOfDay, thresholds.hrv.baselineWindowDays))
   const rhrBase = windowMean(rhr, asOfDay, thresholds.rhr.baselineWindowDays)
   const rhrBaseSd = populationStdDev(windowValues(rhr, asOfDay, thresholds.rhr.baselineWindowDays))
-  const sleepBaseSd = populationStdDev(
-    windowValues(sleepHours, asOfDay, thresholds.sleep.windowDays * 4),
-  )
+  const sleepWindow = thresholds.sleep.windowDays * 4
+  const sleepBase = windowMean(sleepHours, asOfDay, sleepWindow)
+  const sleepBaseSd = populationStdDev(windowValues(sleepHours, asOfDay, sleepWindow))
+  const loadBase = windowMean(workoutMin, asOfDay, thresholds.workout.chronicDays)
 
   // Engine v2 dual-window detectors for HRV / RHR / sleep.
   const hrvTrend = detectTrend(hrv, asOfDay, hrvBaseSd, true)
@@ -94,12 +110,18 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   const hrvShort = windowMean(hrv, asOfDay, thresholds.hrv.shortWindowDays)
   const rhrShort = windowMean(rhr, asOfDay, thresholds.rhr.shortWindowDays)
   const sleepShort = windowMean(sleepHours, asOfDay, thresholds.sleep.windowDays)
+
+  // Require a minimum number of RECENT readings before trusting a short-window
+  // mean. windowMean returns {mean:0,count:0} for an empty window; for HRV/RHR a
+  // real 0 is impossible, so an unguarded mean of 0 would read as a catastrophic
+  // drop and both fire a false rule AND poison the composite score. Gate on count.
+  const hrvShortEnough = hrvShort.count >= thresholds.hrv.minShortSamples
+  const rhrShortEnough = rhrShort.count >= thresholds.rhr.minShortSamples
   const hrvDropSd =
-    hrvBase.mean > 0 && hrvBaseSd
+    hrvShortEnough && hrvBase.mean > 0 && hrvBaseSd
       ? (hrvBase.mean - hrvShort.mean) / hrvBaseSd
       : null
-  const rhrRiseBpm =
-    rhrBase.mean > 0 ? rhrShort.mean - rhrBase.mean : null
+  const rhrRiseBpm = rhrShortEnough && rhrBase.mean > 0 ? rhrShort.mean - rhrBase.mean : null
   const recoveryScore = compositeRecoveryScore({
     hrvDropSd,
     rhrRiseBpm,
@@ -108,6 +130,8 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
 
   const levelDominates =
     recoveryScore !== null && recoveryScore >= LEVEL_DOMINATES_RECOVERY_FLOOR
+
+  const insufficientData = { hrv: !hrvShortEnough, rhr: !rhrShortEnough }
 
   const fired: FiredRule[] = []
 
@@ -118,8 +142,8 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   // Level signals run alongside trend signals (engine v2 keeps both —
   // levels see WHERE the metric is, trends see WHERE IT'S GOING).
   // SD-normalized thresholds match the engine v2 constants.
-  if (hrvDropSd !== null && hrvDropSd >= 1.0) {
-    const sev: Severity = hrvDropSd >= 2.5 ? 'deload' : 'caution'
+  if (hrvDropSd !== null && hrvDropSd >= thresholds.hrv.dropSdCaution) {
+    const sev: Severity = hrvDropSd >= thresholds.hrv.dropSdDeload ? 'deload' : 'caution'
     fired.push({
       id: 'hrv_below_baseline',
       name: 'HRV below baseline',
@@ -132,8 +156,8 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
       },
     })
   }
-  if (rhrRiseBpm !== null && rhrRiseBpm >= 3) {
-    const sev: Severity = rhrRiseBpm >= 8 ? 'deload' : 'caution'
+  if (rhrRiseBpm !== null && rhrRiseBpm >= thresholds.rhr.riseBpmCaution) {
+    const sev: Severity = rhrRiseBpm >= thresholds.rhr.riseBpmDeload ? 'deload' : 'caution'
     fired.push({
       id: 'rhr_above_baseline',
       name: 'Resting HR elevated',
@@ -146,13 +170,14 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
       },
     })
   }
-  if (sleepShort.count >= 3 && sleepShort.mean < 7.0) {
-    const sev: Severity = sleepShort.mean < 6.0 ? 'deload' : 'caution'
+  if (sleepShort.count >= thresholds.sleep.minRecentNights && sleepShort.mean < thresholds.sleep.cautionMinHours) {
+    const sev: Severity = sleepShort.mean < thresholds.sleep.deloadMinHours ? 'deload' : 'caution'
+    const floor = sev === 'deload' ? thresholds.sleep.deloadMinHours : thresholds.sleep.cautionMinHours
     fired.push({
       id: 'sleep_deficit',
       name: sev === 'deload' ? 'Severe sleep deficit' : 'Sleep below target',
       severity: sev,
-      why: `Averaging ${sleepShort.mean.toFixed(1)}h sleep over the past 7 days — below the ${sev === 'deload' ? '6.0' : '7.0'}h floor.`,
+      why: `Averaging ${sleepShort.mean.toFixed(1)}h sleep over the past 7 days — below the ${floor.toFixed(1)}h floor.`,
       evidence: {
         mean: round1(sleepShort.mean),
         nights: sleepShort.count,
@@ -176,10 +201,23 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
     })
   }
 
-  // ACWR — level-based, untouched by engine v2 trend logic.
+  // ACWR — level-based, untouched by engine v2 trend logic. Gate on CALENDAR
+  // coverage (plus a small workout-day floor), not raw workout-day count: a
+  // 3–4×/week athlete has full history but only ~12–16 workout days in 28, and
+  // the ratio already divides by calendar days — so eligibility must be too.
   const acute = windowSum(workoutMin, asOfDay, thresholds.workout.acuteDays)
   const chronic = windowSum(workoutMin, asOfDay, thresholds.workout.chronicDays)
-  if (chronic.count >= 14 && chronic.sum > 0) {
+  const chronicCoverageDays = parsed.range
+    ? Math.min(
+        thresholds.workout.chronicDays,
+        diffDays(asOfDay, instantFromEpoch(parsed.range.startMs).sourceDay) + 1,
+      )
+    : 0
+  if (
+    chronicCoverageDays >= thresholds.workout.minChronicCoverageDays &&
+    chronic.count >= thresholds.workout.minChronicWorkoutDays &&
+    chronic.sum > 0
+  ) {
     const acuteDaily = acute.sum / thresholds.workout.acuteDays
     const chronicDaily = chronic.sum / thresholds.workout.chronicDays
     const acwr = chronicDaily === 0 ? 0 : acuteDaily / chronicDaily
@@ -222,7 +260,19 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
     series: { hrv, rhr, sleepHours, workoutMin },
     recoveryScore: recoveryScore === null ? null : round1(recoveryScore),
     levelDominates,
+    insufficientData,
+    baselines: {
+      hrv: baselineOrNull(hrvBase),
+      rhr: baselineOrNull(rhrBase),
+      sleep: baselineOrNull(sleepBase),
+      load: baselineOrNull(loadBase),
+    },
   }
+}
+
+/** Map a windowMean result to a baseline value, or null when the window was empty. */
+function baselineOrNull(r: { mean: number; count: number }): number | null {
+  return r.count === 0 ? null : r.mean
 }
 
 /**
@@ -298,9 +348,7 @@ function formatSd(n: number | null): string {
 }
 
 function withinDays(day: string, end: string, windowDays: number): boolean {
-  const a = new Date(end + 'T00:00:00').getTime()
-  const b = new Date(day + 'T00:00:00').getTime()
-  const gap = Math.round((a - b) / 86_400_000)
+  const gap = diffDays(end, day)
   return gap >= 0 && gap < windowDays
 }
 
