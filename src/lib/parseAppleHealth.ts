@@ -22,12 +22,24 @@ const SLEEP_VALUE_MAP: Record<string, SleepStage> = {
   HKCategoryValueSleepAnalysisAwake: 'awake',
 }
 
+/** The only Record types we keep — a real export is mostly other types (steps, HR, …). */
+const KEPT_RECORD_TYPES = new Set([HRV_TYPE, RHR_TYPE, SLEEP_TYPE])
+
+// One compiled RegExp per attribute name. A full export has millions of records,
+// so compiling a fresh RegExp per attr() call dominated parse time; the patterns
+// have no global flag, so the cached objects are safe to reuse across tags.
+const ATTR_RE_CACHE = new Map<string, RegExp>()
+
 /**
  * Pull a single attribute value out of a tag string by name.
  * Apple Health uses double-quoted attributes consistently.
  */
 function attr(tag: string, name: string): string | undefined {
-  const re = new RegExp(`\\b${name}="([^"]*)"`)
+  let re = ATTR_RE_CACHE.get(name)
+  if (!re) {
+    re = new RegExp(`\\b${name}="([^"]*)"`)
+    ATTR_RE_CACHE.set(name, re)
+  }
   const m = re.exec(tag)
   return m?.[1]
 }
@@ -73,7 +85,8 @@ function widenRange(
 
 function handleRecord(tag: string, out: ParsedExport): void {
   const type = attr(tag, 'type')
-  if (!type) return
+  // Bail before any date parsing — most records (steps, heart rate, …) aren't kept.
+  if (!type || !KEPT_RECORD_TYPES.has(type)) return
   const startStr = attr(tag, 'startDate')
   if (!startStr) return
   const start = parseAppleHealthDate(startStr)
