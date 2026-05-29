@@ -80,16 +80,13 @@ export function metaRule(fired: FiredRule[]): FiredRule | null {
  * were within baseline, then describes the rollover. Falls back to a
  * mixed-window phrasing if no such day exists.
  */
-export function narrative(specs: MetricSpec[], asOfDay: string): string {
+export function narrative(
+  specs: MetricSpec[],
+  asOfDay: string,
+  baselines: Record<MetricKey, number | null>,
+): string {
   const days = collectDaysDescending(specs, asOfDay)
   if (days.length === 0) return 'Not enough data yet for a window picture.'
-
-  const baselines: Record<MetricKey, number | null> = {
-    hrv: meanLast(specs.find((s) => s.key === 'hrv')?.series ?? [], 28),
-    rhr: meanLast(specs.find((s) => s.key === 'rhr')?.series ?? [], 28),
-    sleep: meanLast(specs.find((s) => s.key === 'sleep')?.series ?? [], 28),
-    load: meanLast(specs.find((s) => s.key === 'load')?.series ?? [], 28),
-  }
 
   // Find the most recent day where NO metric is off baseline.
   let lastCleanDay: string | null = null
@@ -134,12 +131,6 @@ export function narrative(specs: MetricSpec[], asOfDay: string): string {
 function valueOn(series: DailyMetric[], day: string): number | null {
   const m = series.find((d) => d.day === day)
   return m ? m.value : null
-}
-
-function meanLast(series: DailyMetric[], n: number): number | null {
-  const tail = series.slice(-n)
-  if (tail.length === 0) return null
-  return tail.reduce((a, b) => a + b.value, 0) / tail.length
 }
 
 function collectDaysDescending(specs: MetricSpec[], asOfDay: string): string[] {

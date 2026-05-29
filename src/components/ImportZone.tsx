@@ -76,6 +76,10 @@ export function ImportZone({ onFile, onSample }: Props) {
           device.
         </p>
       </details>
+
+      <p className="text-center text-xs text-zinc-500">
+        Exploratory training signal, not medical advice.
+      </p>
     </div>
   )
 }

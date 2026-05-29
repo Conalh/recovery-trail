@@ -68,7 +68,7 @@ type WindowSize = 14 | 28
 const WINDOW_OPTIONS: WindowSize[] = [14, 28]
 
 export function HeatmapBriefing({ recommendation, onReset }: Props) {
-  const { series, fired, verdict, asOfDay } = recommendation
+  const { series, fired, verdict, asOfDay, baselines, insufficientData } = recommendation
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [expandedMetric, setExpandedMetric] = useState<MetricKey | null>(null)
   const [hoveredMetric, setHoveredMetric] = useState<MetricKey | null>(null)
@@ -85,9 +85,12 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   ]
 
   const days = collectLastNDays(specs, asOfDay, windowSize)
-  const baselines = computeBaselines(specs)
   const todayIso = days[days.length - 1] ?? asOfDay
-  const summary = narrative(specs, asOfDay)
+  const summary = narrative(specs, asOfDay, baselines)
+  const insufficientMetrics = [
+    insufficientData.hrv ? 'HRV' : null,
+    insufficientData.rhr ? 'resting HR' : null,
+  ].filter((x): x is string => x !== null)
   const meta = metaRule(fired)
   const allRules = meta ? [meta, ...fired] : fired
   const badge = VERDICT_BADGE[verdict]
@@ -429,6 +432,15 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </p>
       )}
 
+      {insufficientMetrics.length > 0 && (
+        <p className="rounded-md border border-panelLine bg-white/[0.02] px-3 py-2 text-[11.5px] leading-relaxed text-faint">
+          Insufficient recent {insufficientMetrics.join(' & ')} data (fewer than 3
+          readings in the last 7 days) —{' '}
+          {insufficientMetrics.length > 1 ? 'those level checks were' : 'that level check was'}{' '}
+          skipped rather than read as a drop.
+        </p>
+      )}
+
       <div className="stagger-in stagger-5">
         <h3 className="px-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
           {allRules.length === 0
@@ -446,6 +458,11 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
           ))}
         </ul>
       </div>
+
+      <p className="border-t border-panelLine pt-3 text-[10.5px] leading-relaxed text-faint">
+        Exploratory training signal, not medical advice. Talk to a clinician for
+        anything that matters.
+      </p>
     </div>
   )
 }
@@ -561,15 +578,6 @@ function collectLastNDays(specs: MetricSpec[], asOfDay: string, n: number): stri
     .filter((d) => d <= asOfDay)
     .sort()
     .slice(-n)
-}
-
-function computeBaselines(specs: MetricSpec[]): Record<MetricKey, number | null> {
-  const out = {} as Record<MetricKey, number | null>
-  for (const s of specs) {
-    const tail = s.series.slice(-28)
-    out[s.key] = tail.length === 0 ? null : tail.reduce((a, b) => a + b.value, 0) / tail.length
-  }
-  return out
 }
 
 function shortDay(iso: string): string {
