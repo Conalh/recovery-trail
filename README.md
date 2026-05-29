@@ -124,12 +124,13 @@ The file never leaves your browser. Parsing is purely client-side.
 - Tailwind v3 (with custom `@layer utilities` for glow / pulse /
   stagger animations to compose against Tailwind's box-shadow
   CSS-variable system)
-- Geist (sans) + JetBrains Mono via Google Fonts
+- Geist (sans) + JetBrains Mono, self-hosted via `@fontsource` (no
+  third-party font requests at runtime)
 - Single web worker for streaming Apple Health XML — handles
   multi-hundred-MB exports without blocking the UI
 - Zero charting deps — sparklines and the in-row metric chart are
   hand-rolled SVG
-- Zero analytics, zero tracking
+- Zero analytics, zero tracking, zero third-party runtime requests
 
 ## Develop
 
@@ -142,8 +143,8 @@ npm run preview        # serve the built bundle
 
 The GitHub Pages deploy is fully automated via
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) —
-every push to `main` builds and ships. Workflow uses the Node 24
-versions (`checkout@v6`, `setup-node@v6`, `configure-pages@v6`,
+every push to `main` lints, tests, builds, and ships on Node 22
+(`checkout@v6`, `setup-node@v6`, `configure-pages@v6`,
 `upload-pages-artifact@v5`, `deploy-pages@v5`).
 
 ## Project layout
