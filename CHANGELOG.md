@@ -8,6 +8,14 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Workout-load rule: dropped the acute:chronic workload ratio (ACWR).**
+  The coupled ratio (acute window sits inside the chronic denominator) is the
+  central target of the ACWR critique (Impellizzeri et al. 2020). Replaced it
+  with an *uncoupled* week-over-week load ramp — this week's load vs the average
+  of the prior 3 weeks (excluded from the baseline), flagged by percentage
+  increase. Rule ids `acwr_high`/`acwr_very_high` became
+  `load_ramp`/`load_spike`; `thresholds.workout` swaps the ACWR bands for
+  `rampPctCaution`/`rampPctDeload` plus a prior-baseline floor.
 - **Methodology references corrected and refreshed.** The dual-window
   rationale no longer misattributes a "~4-week window" recommendation to
   Plews et al. (2013); it now reflects the actual

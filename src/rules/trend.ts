@@ -24,7 +24,7 @@
  *
  * applyLevelDominates: when composite recovery ≥ floor (default 90),
  * demote every trend signal by one more band. Levels-based signals
- * (e.g. workout load ACWR) are unaffected — the rule is about trend
+ * (e.g. the workout load-ramp rule) are unaffected — the rule is about trend
  * noise on a clean recovery picture, not a blanket override.
  *
  * Thresholds are ported as-is from the engine v2 constants. The

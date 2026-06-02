@@ -59,35 +59,50 @@ describe('evaluate — missing recent data', () => {
   })
 })
 
-describe('evaluate — ACWR calendar-coverage gate', () => {
+describe('evaluate — load ramp (uncoupled week-over-week)', () => {
   it('fires for a 3x/week athlete with full history and an acute spike', () => {
     const workouts: WorkoutSample[] = []
-    // 3 prior weeks, 3 sessions/week, 60 min: 9 distinct workout days (would fail the old >=14 gate).
+    // Prior 3 weeks, 3 sessions/week, 60 min: 9 workout days, 540 min → 180 min/week.
     for (const d of [27, 25, 23, 20, 18, 16, 13, 11, 9]) workouts.push(workout(d, 60))
-    // Acute week: 4 sessions of 90 min.
+    // Acute week: 4 × 90 = 360 min → +100% over the prior weekly average.
     for (const d of [6, 4, 2, 0]) workouts.push(workout(d, 90))
     const rec = evaluate(build({ workouts, range: rangeFrom(30) }))!
-    expect(rec.fired.find((r) => r.id === 'acwr_high' || r.id === 'acwr_very_high')).toBeDefined()
+    expect(rec.fired.find((r) => r.id === 'load_ramp' || r.id === 'load_spike')).toBeDefined()
+  })
+
+  it('fires a caution-level ramp (not deload) for a moderate increase', () => {
+    const workouts: WorkoutSample[] = []
+    // Prior 3 weeks: 540 min → 180 min/week.
+    for (const d of [27, 25, 23, 20, 18, 16, 13, 11, 9]) workouts.push(workout(d, 60))
+    // Acute week: 3 × 90 = 270 min → +50% over prior (caution band, below deload).
+    for (const d of [6, 4, 2]) workouts.push(workout(d, 90))
+    const rec = evaluate(build({ workouts, range: rangeFrom(30) }))!
+    const load = rec.fired.find((r) => r.id.startsWith('load_'))
+    expect(load?.id).toBe('load_ramp')
+    expect(load?.severity).toBe('caution')
   })
 
   it('does not fire when calendar coverage is below the chronic window', () => {
     const workouts = [0, 2, 4, 6, 8].map((d) => workout(d, 90))
     const rec = evaluate(build({ workouts, range: rangeFrom(10) }))!
-    expect(rec.fired.find((r) => r.id.startsWith('acwr'))).toBeUndefined()
+    expect(rec.fired.find((r) => r.id.startsWith('load_'))).toBeUndefined()
   })
 
-  it('does not fire below the minimum chronic workout-day floor', () => {
-    const workouts = [0, 2, 4].map((d) => workout(d, 90)) // only 3 workout days
+  it('does not fire when the prior baseline is too thin to judge a spike', () => {
+    // Every workout lands in the acute week, so the prior 3 weeks are empty —
+    // a percentage ramp would be meaningless and the rule must stay silent.
+    const workouts = [0, 2, 4].map((d) => workout(d, 90))
     const rec = evaluate(build({ workouts, range: rangeFrom(30) }))!
-    expect(rec.fired.find((r) => r.id.startsWith('acwr'))).toBeUndefined()
+    expect(rec.fired.find((r) => r.id.startsWith('load_'))).toBeUndefined()
   })
 
   it('returns a deload verdict for a severe acute spike', () => {
     const workouts: WorkoutSample[] = []
     for (const d of [27, 25, 23, 20, 18, 16, 13, 11, 9]) workouts.push(workout(d, 60))
+    // Acute week: 4 × 130 = 520 min → +189% → load_spike (deload).
     for (const d of [6, 4, 2, 0]) workouts.push(workout(d, 130))
     const rec = evaluate(build({ workouts, range: rangeFrom(30) }))!
-    expect(rec.fired.find((r) => r.id === 'acwr_very_high')).toBeDefined()
+    expect(rec.fired.find((r) => r.id === 'load_spike')).toBeDefined()
     expect(rec.verdict).toBe('deload')
   })
 })

@@ -74,7 +74,7 @@ A second safety rule fires when the composite recovery score is ≥
 90: trend signals get demoted one more band, on the basis that
 excellent levels shouldn't be overridden by borderline trend math.
 Level signals (HRV-below-baseline, RHR-above-baseline,
-sleep-deficit, ACWR) run alongside the trend signals — levels see
+sleep-deficit, load-ramp) run alongside the trend signals — levels see
 *where* the metric is, trends see *where it's going*.
 
 Thresholds and math live in [`src/rules/trend.ts`](src/rules/trend.ts).
@@ -163,7 +163,7 @@ src/
                                     combineAcuteChronic, demoteOneBand,
                                     compositeRecoveryScore, detectTrend
     evaluate.ts                     wires trend detectors + level signals
-                                    + ACWR + meta-rule into a Recommendation
+                                    + load-ramp + meta-rule into a Recommendation
     aggregate.ts                    daily aggregation helpers
     briefing.ts                     cell-tier, narrative, metaRule
     thresholds.json                 tunable ACSM/engine-v2 constants
@@ -193,10 +193,11 @@ recovery-trail is an exploratory tool for fit, generally-healthy
 adults already training. It is **not** medical advice. ACSM
 thresholds, slope-severity bands, and the engine v2 combiner are
 general guidance derived from published methodology, not personal
-prescription. The workout-load rule uses the acute:chronic workload
-ratio, which is widely used but methodologically contested (Impellizzeri
-et al. 2020) — treat it as a soft heuristic, not a verdict. Talk to a
-clinician for anything that matters.
+prescription. The workout-load rule flags a sharp week-over-week load
+increase against your prior 3-week baseline — an uncoupled alternative
+to the contested acute:chronic workload ratio (Impellizzeri et al.
+2020), and still a soft heuristic, not a verdict. Talk to a clinician
+for anything that matters.
 
 ## Credits
 
@@ -226,17 +227,18 @@ founding papers above are now a decade old:
   meta-analysis](https://doi.org/10.3390/ijerph17217999), same
   direction.
 
-**Workout load (ACWR):**
+**Workout load:**
 
 - Gabbett (2016), *Br J Sports Med* 50(5):273–280 — the
   [acute:chronic workload
-  ratio](https://pubmed.ncbi.nlm.nih.gov/26758673/) the load rule
-  implements.
+  ratio](https://pubmed.ncbi.nlm.nih.gov/26758673/) that popularized
+  load-spike monitoring.
 - Impellizzeri, Tenan et al. (2020), *Int J Sports Physiol Perform*
   15(6):907–913 — [*Acute:chronic workload ratio: conceptual issues
   and fundamental pitfalls*](https://pubmed.ncbi.nlm.nih.gov/32502973/).
-  The ACWR is contested; the load rule is a soft heuristic (see
-  Disclaimer).
+  Why this app does **not** use the coupled ratio: it flags an
+  uncoupled week-over-week load increase vs your prior 3-week baseline
+  instead.
 
 **Sleep & general thresholds:**
 

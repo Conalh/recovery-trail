@@ -558,8 +558,8 @@ function formatEvidenceLine(rule: FiredRule): string {
   if ('lowNights' in e && 'threshold' in e) {
     return `nights<${e.threshold}h: ${e.lowNights}`
   }
-  if ('acwr' in e && 'acuteMin' in e && 'chronicMin' in e) {
-    return `acwr ${e.acwr}  7d ${e.acuteMin}min  28d ${e.chronicMin}min`
+  if ('rampPct' in e && 'thisWeekMin' in e && 'priorWeeklyAvgMin' in e) {
+    return `+${e.rampPct}% vs prior   7d ${e.thisWeekMin}min   prior ${e.priorWeeklyAvgMin}min/wk`
   }
   return Object.entries(e)
     .map(([k, v]) => `${k} ${v}`)

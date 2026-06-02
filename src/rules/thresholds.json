@@ -26,8 +26,9 @@
     "acuteDays": 7,
     "chronicDays": 28,
     "minChronicCoverageDays": 28,
-    "minChronicWorkoutDays": 4,
-    "highAcwr": 1.5,
-    "veryHighAcwr": 1.8
+    "minPriorWorkoutDays": 4,
+    "minPriorWeeklyMin": 30,
+    "rampPctCaution": 50,
+    "rampPctDeload": 100
   }
 }

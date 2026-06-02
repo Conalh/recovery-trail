@@ -200,12 +200,23 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
     })
   }
 
-  // ACWR — level-based, untouched by engine v2 trend logic. Gate on CALENDAR
-  // coverage (plus a small workout-day floor), not raw workout-day count: a
-  // 3–4×/week athlete has full history but only ~12–16 workout days in 28, and
-  // the ratio already divides by calendar days — so eligibility must be too.
+  // Load ramp — uncoupled week-over-week change. The acute week's load is
+  // compared to the average weekly load of the PRIOR 3 weeks, which is excluded
+  // from the comparison (priorSum = chronic − acute). That removes the
+  // mathematical coupling between the figure and its reference — the central
+  // objection to the acute:chronic workload ratio (Impellizzeri et al. 2020),
+  // where the acute week sits inside the chronic denominator so the ratio partly
+  // tracks itself. We flag a rapid rise vs the recent norm instead, which is
+  // what the load-management literature favors ("minimize week-to-week
+  // changes"). Still a soft heuristic — load does not reliably predict injury.
   const acute = windowSum(workoutMin, asOfDay, thresholds.workout.acuteDays)
   const chronic = windowSum(workoutMin, asOfDay, thresholds.workout.chronicDays)
+  const priorWeeks =
+    (thresholds.workout.chronicDays - thresholds.workout.acuteDays) / thresholds.workout.acuteDays
+  const priorSum = chronic.sum - acute.sum
+  const priorWorkoutDays = chronic.count - acute.count
+  const priorWeeklyAvg = priorWeeks > 0 ? priorSum / priorWeeks : 0
+  const thisWeekLoad = acute.sum
   // Coverage = whole days spanned by the data, measured from the instants
   // themselves. Deriving a calendar day from range.startMs would re-introduce a
   // timezone dependency (an evening sample rolls to the next UTC day), so the
@@ -216,37 +227,36 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
         Math.floor((parsed.range.endMs - parsed.range.startMs) / 86_400_000) + 1,
       )
     : 0
+  // Gate on full calendar coverage PLUS a substantive prior baseline (enough
+  // prior workout days and a minimum weekly average), so a near-rest baseline
+  // can't manufacture a huge percentage from one normal week — the
+  // low-denominator instability the ratio is criticized for.
   if (
     chronicCoverageDays >= thresholds.workout.minChronicCoverageDays &&
-    chronic.count >= thresholds.workout.minChronicWorkoutDays &&
-    chronic.sum > 0
+    priorWorkoutDays >= thresholds.workout.minPriorWorkoutDays &&
+    priorWeeklyAvg >= thresholds.workout.minPriorWeeklyMin
   ) {
-    const acuteDaily = acute.sum / thresholds.workout.acuteDays
-    const chronicDaily = chronic.sum / thresholds.workout.chronicDays
-    const acwr = chronicDaily === 0 ? 0 : acuteDaily / chronicDaily
-    if (acwr > thresholds.workout.veryHighAcwr) {
+    const rampPct = ((thisWeekLoad - priorWeeklyAvg) / priorWeeklyAvg) * 100
+    const evidence = {
+      rampPct: Math.round(rampPct),
+      thisWeekMin: Math.round(thisWeekLoad),
+      priorWeeklyAvgMin: Math.round(priorWeeklyAvg),
+    }
+    if (rampPct >= thresholds.workout.rampPctDeload) {
       fired.push({
-        id: 'acwr_very_high',
-        name: 'Acute load spike',
+        id: 'load_spike',
+        name: 'Load spike',
         severity: 'deload',
-        why: `Acute:chronic workload ratio is ${acwr.toFixed(2)} (above ${thresholds.workout.veryHighAcwr}). Injury risk territory.`,
-        evidence: {
-          acwr: round2(acwr),
-          acuteMin: Math.round(acute.sum),
-          chronicMin: Math.round(chronic.sum),
-        },
+        why: `This week's training is ${Math.round(thisWeekLoad)} min — ${Math.round(rampPct)}% above your prior 3-week average of ${Math.round(priorWeeklyAvg)} min/week. Sharp jump.`,
+        evidence,
       })
-    } else if (acwr > thresholds.workout.highAcwr) {
+    } else if (rampPct >= thresholds.workout.rampPctCaution) {
       fired.push({
-        id: 'acwr_high',
+        id: 'load_ramp',
         name: 'Load ramping fast',
         severity: 'caution',
-        why: `Acute:chronic workload ratio is ${acwr.toFixed(2)} (above ${thresholds.workout.highAcwr}).`,
-        evidence: {
-          acwr: round2(acwr),
-          acuteMin: Math.round(acute.sum),
-          chronicMin: Math.round(chronic.sum),
-        },
+        why: `This week's training is ${Math.round(rampPct)}% above your prior 3-week average (${Math.round(thisWeekLoad)} vs ${Math.round(priorWeeklyAvg)} min/week).`,
+        evidence,
       })
     }
   }

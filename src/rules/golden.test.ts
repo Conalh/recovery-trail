@@ -197,10 +197,10 @@ describe('golden: evaluator missing-data guards', () => {
   })
 })
 
-describe('golden: ACWR calendar coverage', () => {
-  it('does not fire ACWR with full coverage but too few workout days', () => {
-    // 28 days of calendar coverage (an HRV reading 28 days back) but only 3
-    // workout days — under minChronicWorkoutDays (4).
+describe('golden: load-ramp coverage', () => {
+  it('does not fire a load ramp when the prior baseline is empty (all workouts in the acute week)', () => {
+    // 28 days of calendar coverage (an HRV reading 28 days back) but every
+    // workout sits in the acute week, so the prior 3-week baseline is empty.
     const xml = [
       hrvXml(addDays(ASOF, -28), '04:00', 55),
       workoutXml(addDays(ASOF, -0), 120),
@@ -208,24 +208,24 @@ describe('golden: ACWR calendar coverage', () => {
       workoutXml(addDays(ASOF, -4), 120),
     ].join('')
     const rec = evaluate(parseRecordsFromXmlString(xml))!
-    expect(rec.fired.find((r) => r.id.startsWith('acwr'))).toBeUndefined()
+    expect(rec.fired.find((r) => r.id.startsWith('load_'))).toBeUndefined()
   })
 
-  it('fires ACWR for a 3x/week athlete with full coverage and an acute spike', () => {
+  it('fires a load ramp for a 3x/week athlete with full coverage and an acute spike', () => {
     const xml = [
       ...[27, 25, 23, 20, 18, 16, 13, 11, 9].map((d) => workoutXml(addDays(ASOF, -d), 60)),
       ...[6, 4, 2, 0].map((d) => workoutXml(addDays(ASOF, -d), 90)),
     ].join('')
     const rec = evaluate(parseRecordsFromXmlString(xml))!
     expect(
-      rec.fired.find((r) => r.id === 'acwr_high' || r.id === 'acwr_very_high'),
+      rec.fired.find((r) => r.id === 'load_ramp' || r.id === 'load_spike'),
     ).toBeDefined()
   })
 
-  it('does not fire ACWR when calendar coverage is under the chronic window', () => {
+  it('does not fire a load ramp when calendar coverage is under the chronic window', () => {
     const xml = [0, 2, 4, 6, 8].map((d) => workoutXml(addDays(ASOF, -d), 90)).join('')
     const rec = evaluate(parseRecordsFromXmlString(xml))!
-    expect(rec.fired.find((r) => r.id.startsWith('acwr'))).toBeUndefined()
+    expect(rec.fired.find((r) => r.id.startsWith('load_'))).toBeUndefined()
   })
 
   it('reports an empty export as no recommendation', () => {

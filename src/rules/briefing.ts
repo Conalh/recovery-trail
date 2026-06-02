@@ -44,7 +44,7 @@ export function metricOfRule(ruleId: string): MetricKey | null {
   if (ruleId.startsWith('hrv_')) return 'hrv'
   if (ruleId.startsWith('rhr_')) return 'rhr'
   if (ruleId.startsWith('sleep_')) return 'sleep'
-  if (ruleId.startsWith('acwr_')) return 'load'
+  if (ruleId.startsWith('load_')) return 'load'
   return null
 }
 
