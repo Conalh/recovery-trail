@@ -9,9 +9,11 @@
  *
  *   chronic — 28-day EWMA (halflife=10 days), then OLS slope on the
  *            smoothed series. Damps short-window noise; reflects
- *            sustained direction. Plews, Laursen et al. (2013)
- *            recommend ~4-week windows for individual-level monitoring
- *            because the 7-day variance is too high to act on alone.
+ *            sustained direction. Mirrors the Plews/Buchheit HRV-
+ *            monitoring method: act on a 7-day rolling average read
+ *            against the individual's ~4-week normal range, rather than
+ *            reacting to a single short-window move the longer window
+ *            hasn't confirmed.
  *
  * combineAcuteChronic resolves the (acute, chronic) pair per the engine
  * v2 decision table:

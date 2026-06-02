@@ -60,10 +60,11 @@ side by side, ported from
 
 A combiner resolves the pair per the engine v2 decision table:
 
-- **Acute-only fires** → demote one band (noise suppression — the
-  headline rule from Plews, Laursen et al. 2013, who recommend
-  ~4-week windows for individual-level monitoring exactly because
-  the 7-day variance is too high to act on alone).
+- **Acute-only fires** → demote one band (noise suppression — in the
+  spirit of the Plews/Buchheit HRV-monitoring method, which acts on a
+  7-day rolling average read against the individual's ~4-week normal
+  range rather than reacting to a single short-window move the longer
+  window hasn't confirmed).
 - **Chronic stronger than acute** → promote one band (chronic is
   seeing what the acute window hasn't caught yet).
 - **Chronic confirms acute at same or lower tier** → trust the
@@ -192,7 +193,10 @@ recovery-trail is an exploratory tool for fit, generally-healthy
 adults already training. It is **not** medical advice. ACSM
 thresholds, slope-severity bands, and the engine v2 combiner are
 general guidance derived from published methodology, not personal
-prescription. Talk to a clinician for anything that matters.
+prescription. The workout-load rule uses the acute:chronic workload
+ratio, which is widely used but methodologically contested (Impellizzeri
+et al. 2020) — treat it as a soft heuristic, not a verdict. Talk to a
+clinician for anything that matters.
 
 ## Credits
 
@@ -200,12 +204,49 @@ Trend-detection methodology and reasoning layer ported from
 [fit-ontology](https://github.com/Conalh/fit-ontology) — the
 trainer-facing companion. Methodology references:
 
+**HRV / heart-rate monitoring** — the dual-window trend core:
+
 - Plews, Laursen, Stanley, Kilding, Buchheit (2013), *Sports Med*
-  43(9):773–781 — *Training Adaptation and Heart Rate Variability
-  in Elite Endurance Athletes.*
-- Buchheit (2014) — *Monitoring training status with HR measures.*
-- Gabbett (2016) — acute:chronic workload ratio.
-- ACSM's *Guidelines for Exercise Testing and Prescription*, 11e.
+  43(9):773–781 — [*Training adaptation and heart rate variability in
+  elite endurance athletes: opening the door to effective
+  monitoring*](https://doi.org/10.1007/s40279-013-0071-8). The
+  7-day-rolling-average-against-baseline method this engine builds on.
+- Buchheit (2014), *Front Physiol* 5:73 — [*Monitoring training status
+  with HR measures: do all roads lead to
+  Rome?*](https://doi.org/10.3389/fphys.2014.00073)
+
+**Evidence the HRV-guided premise holds** — post-2016, since the
+founding papers above are now a decade old:
+
+- Vesterinen et al. (2016), *Med Sci Sports Exerc* 48(7):1347–1354 —
+  [RCT](https://doi.org/10.1249/MSS.0000000000000910): HRV-guided
+  training beat predetermined training for VO₂max.
+- Granero-Gallegos, González-Quílez, Plews, Carrasco-Poyatos (2020),
+  *IJERPH* 17(21):7999 — [systematic review +
+  meta-analysis](https://doi.org/10.3390/ijerph17217999), same
+  direction.
+
+**Workout load (ACWR):**
+
+- Gabbett (2016), *Br J Sports Med* 50(5):273–280 — the
+  [acute:chronic workload
+  ratio](https://pubmed.ncbi.nlm.nih.gov/26758673/) the load rule
+  implements.
+- Impellizzeri, Tenan et al. (2020), *Int J Sports Physiol Perform*
+  15(6):907–913 — [*Acute:chronic workload ratio: conceptual issues
+  and fundamental pitfalls*](https://pubmed.ncbi.nlm.nih.gov/32502973/).
+  The ACWR is contested; the load rule is a soft heuristic (see
+  Disclaimer).
+
+**Sleep & general thresholds:**
+
+- Walsh, Halson et al. (2021), *Br J Sports Med* 55(7):356–368 —
+  [*Sleep and the athlete: 2021 expert consensus
+  recommendations*](https://doi.org/10.1136/bjsports-2020-102025).
+- ACSM's *Guidelines for Exercise Testing and Prescription*, 11e (2021)
+  — general umbrella for the level-rule defaults. (Not the source of
+  the specific HRV/RHR cutoffs — those follow the monitoring literature
+  above.)
 
 ## License
 

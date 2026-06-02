@@ -4,6 +4,21 @@ All notable changes to recovery-trail are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Methodology references corrected and refreshed.** The dual-window
+  rationale no longer misattributes a "~4-week window" recommendation to
+  Plews et al. (2013); it now reflects the actual
+  7-day-rolling-average-against-baseline method. Added post-2016 evidence
+  that the HRV-guided premise holds (Vesterinen et al. 2016 RCT;
+  Granero-Gallegos et al. 2020 meta-analysis), a modern sleep-consensus
+  reference (Walsh et al. 2021), and a note that the ACWR load rule is
+  methodologically contested (Impellizzeri et al. 2020). Clarified that
+  ACSM is a general umbrella, not the source of the specific HRV/RHR
+  cutoffs.
+
 ## [0.1.0] - 2026-05-29
 
 Initial public release.

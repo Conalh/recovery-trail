@@ -1,5 +1,5 @@
 {
-  "_source": "Derived from fit-ontology's ACSM-aligned defaults. Tunable — single source of truth for the level-rule thresholds the engine fires on.",
+  "_source": "Tunable — single source of truth for the level-rule thresholds the engine fires on. HRV/RHR/sleep cutoffs follow the HRV-monitoring and sleep-consensus literature (Plews/Buchheit; Walsh et al. 2021); workout ACWR bands follow Gabbett (2016), which is methodologically contested (Impellizzeri et al. 2020). Broadly ACSM-aligned, but ACSM is not the source of the specific numbers.",
   "hrv": {
     "shortWindowDays": 7,
     "baselineWindowDays": 28,
