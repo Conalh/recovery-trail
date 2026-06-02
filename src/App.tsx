@@ -73,10 +73,11 @@ function App() {
                   See your last two weeks of recovery — explained.
                 </h2>
                 <p className="mt-2 text-zinc-400">
-                  Drop in your Apple Health export. recovery-trail aggregates
-                  HRV, resting heart rate, sleep, and workout load, runs them
-                  against ACSM-aligned rules, and shows you the exact reasoning
-                  behind a training verdict.
+                  Drop in your Apple Health export. recovery-trail reads HRV,
+                  resting heart rate, overnight respiratory rate, sleep, sleep
+                  regularity, and training load, runs them against published
+                  recovery-monitoring methodology, and shows you the exact
+                  reasoning behind a training verdict.
                 </p>
               </div>
               <ImportZone onFile={handleFile} onSample={handleSample} />

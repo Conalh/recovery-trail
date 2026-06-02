@@ -6,6 +6,17 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Overnight respiratory rate + Sleep Regularity Index (SRI) vectors.**
+  recovery-trail now reads six recovery signals, not four. Respiratory rate
+  (`HKQuantityTypeIdentifierRespiratoryRate`) gets a level gate (≥3 brpm over
+  the personal 28-day baseline) plus the dual-window trend; SRI is derived from
+  the sleep/wake timing already parsed (no new data source) and gated on its own
+  trend. Both render as new heatmap rows. Grounded in Natarajan et al. (2021,
+  *npj Digital Medicine*) for respiratory rate and Windred et al. (2024, *SLEEP*)
+  for SRI.
+
 ### Changed
 
 - **Workout-load rule: dropped the acute:chronic workload ratio (ACWR).**

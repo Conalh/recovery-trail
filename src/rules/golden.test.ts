@@ -43,7 +43,7 @@ function workoutXml(
 }
 
 function build(p: Partial<ParsedExport>): ParsedExport {
-  return { hrv: [], rhr: [], sleep: [], workouts: [], range: null, ...p }
+  return { hrv: [], rhr: [], respRate: [], sleep: [], workouts: [], range: null, ...p }
 }
 
 // ── 1. Explicit timezone offsets ────────────────────────────────────────

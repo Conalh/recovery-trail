@@ -22,7 +22,7 @@ The briefing view is a single page, mobile-first:
   verdict pill (`standard` / `caution` / `deload`). The verdict dot
   glows in its severity color and pulses three times on first load
   when you're in deload territory.
-- **Heatmap card** — four rows (HRV, RHR, Sleep, Load) × N daily
+- **Heatmap card** — six rows (HRV, RHR, Resp rate, Sleep, Sleep-regularity, Load) × N daily
   cells. Each cell is colored on a 5-tier scale by how far that day
   deviates from the metric's 28-day baseline (teal = better than
   baseline, rust = worse). The today cell carries an ambient breath
@@ -47,8 +47,8 @@ the situation rather than recite numbers.
 
 ## How the reasoning works — engine v2
 
-Each recovery signal (HRV / RHR / sleep) runs two slope estimators
-side by side, ported from
+Each recovery signal (HRV / RHR / respiratory rate / sleep / sleep
+regularity) runs two slope estimators side by side, ported from
 [fit-ontology](https://github.com/Conalh/fit-ontology):
 
 - **Acute**: 7-day ordinary least-squares slope of the raw daily
@@ -74,7 +74,7 @@ A second safety rule fires when the composite recovery score is ≥
 90: trend signals get demoted one more band, on the basis that
 excellent levels shouldn't be overridden by borderline trend math.
 Level signals (HRV-below-baseline, RHR-above-baseline,
-sleep-deficit, load-ramp) run alongside the trend signals — levels see
+sleep-deficit, respiratory-rate, load-ramp) run alongside the trend signals — levels see
 *where* the metric is, trends see *where it's going*.
 
 Thresholds and math live in [`src/rules/trend.ts`](src/rules/trend.ts).
@@ -97,7 +97,7 @@ Thresholds and math live in [`src/rules/trend.ts`](src/rules/trend.ts).
     inspector implicitly)
   - `Esc` closes whatever's open in priority order: inspector →
     expanded metric → focused rule
-  - `1` `2` `3` `4` toggle HRV/RHR/SLEEP/LOAD expansion
+  - `1`–`6` toggle HRV/RHR/RESP/SLEEP/SRI/LOAD expansion
 - **Hover** anywhere on the heatmap or chart → hint line under the
   legend reads `5/18 · HRV 51ms -3%` while you scrub.
 
@@ -165,6 +165,8 @@ src/
     evaluate.ts                     wires trend detectors + level signals
                                     + load-ramp + meta-rule into a Recommendation
     aggregate.ts                    daily aggregation helpers
+    sri.ts                          Sleep Regularity Index (rolling, from
+                                    sleep/wake timing)
     briefing.ts                     cell-tier, narrative, metaRule
     thresholds.json                 tunable ACSM/engine-v2 constants
 
@@ -249,6 +251,17 @@ founding papers above are now a decade old:
   — general umbrella for the level-rule defaults. (Not the source of
   the specific HRV/RHR cutoffs — those follow the monitoring literature
   above.)
+
+**Respiratory rate & sleep regularity** (the two newest vectors):
+
+- Natarajan et al. (2021), *npj Digital Medicine* — [wrist-PPG
+  respiratory rate validates against PSG (r≈0.95) and rises at illness
+  onset](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8443549/); the
+  basis for the ≥3 brpm overnight-rate gate.
+- Windred et al. (2024), *SLEEP* — [the Sleep Regularity Index
+  out-predicts sleep *duration* for all-cause mortality (UK
+  Biobank)](https://academic.oup.com/sleep/article/47/1/zsad253/7280269);
+  the basis for tracking SRI on its own within-person trend.
 
 ## License
 

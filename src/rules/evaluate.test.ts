@@ -5,6 +5,7 @@ import type { Instant } from '../lib/appleHealthDate'
 import type {
   HrvSample,
   ParsedExport,
+  RespRateSample,
   RhrSample,
   SleepSample,
   WorkoutSample,
@@ -23,6 +24,18 @@ function hrv(daysBack: number, valueMs: number): HrvSample {
 function rhr(daysBack: number, valueBpm: number): RhrSample {
   return { start: inst(daysBack, 5), valueBpm, source: 't' }
 }
+function resp(daysBack: number, valueBrpm: number): RespRateSample {
+  return { start: inst(daysBack, 3), valueBrpm, source: 't' }
+}
+function sleepNight(daysBack: number, hours: number): SleepSample {
+  const wake = inst(daysBack, 7)
+  return {
+    start: { instantMs: wake.instantMs - hours * 3_600_000, sourceDay: wake.sourceDay },
+    end: wake,
+    stage: 'asleepCore',
+    source: 't',
+  }
+}
 function workout(daysBack: number, durationMin: number): WorkoutSample {
   const start = inst(daysBack, 18)
   return {
@@ -34,7 +47,7 @@ function workout(daysBack: number, durationMin: number): WorkoutSample {
   }
 }
 function build(p: Partial<ParsedExport>): ParsedExport {
-  return { hrv: [], rhr: [], sleep: [], workouts: [], range: null, ...p }
+  return { hrv: [], rhr: [], respRate: [], sleep: [], workouts: [], range: null, ...p }
 }
 function rangeFrom(daysBack: number): { startMs: number; endMs: number } {
   const day = addDays(ASOF, -daysBack)
@@ -145,5 +158,36 @@ describe('evaluate — sleep overcounting regression', () => {
     }
     const rec = evaluate(build({ sleep }))!
     expect(rec.fired.find((r) => r.id === 'sleep_deficit')).toBeUndefined()
+  })
+})
+
+describe('evaluate — overnight respiratory rate', () => {
+  it('fires resp-above-baseline when the recent overnight rate is elevated', () => {
+    const respRate: RespRateSample[] = []
+    // 28-day baseline ~14 brpm (days 27..7), recent week ~18 brpm (+3 over the
+    // 15 brpm window baseline → at the caution gate).
+    for (let d = 27; d >= 7; d--) respRate.push(resp(d, 14))
+    for (let d = 6; d >= 0; d--) respRate.push(resp(d, 18))
+    const rec = evaluate(build({ respRate }))!
+    expect(rec.fired.find((r) => r.id === 'resp_above_baseline')).toBeDefined()
+  })
+
+  it('stays quiet when overnight respiratory rate holds at baseline', () => {
+    const respRate: RespRateSample[] = []
+    for (let d = 27; d >= 0; d--) respRate.push(resp(d, 14 + (d % 2 ? 0.3 : -0.3)))
+    const rec = evaluate(build({ respRate }))!
+    expect(rec.fired.find((r) => r.id === 'resp_above_baseline')).toBeUndefined()
+  })
+})
+
+describe('evaluate — sleep regularity (SRI)', () => {
+  it('computes a rolling SRI series and baseline from sleep timing', () => {
+    const sleep: SleepSample[] = []
+    for (let d = 20; d >= 0; d--) sleep.push(sleepNight(d, 8)) // regular 8h nights, wake 07:00
+    const rec = evaluate(build({ sleep }))!
+    expect(rec.series.sri.length).toBeGreaterThan(0)
+    expect(rec.baselines.sri).not.toBeNull()
+    // A perfectly regular sleeper should not trip the regularity trend.
+    expect(rec.fired.find((r) => r.id === 'sri_trend')).toBeUndefined()
   })
 })

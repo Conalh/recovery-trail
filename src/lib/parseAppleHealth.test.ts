@@ -18,6 +18,15 @@ describe('parseRecordsFromXmlString', () => {
     expect(parseRecordsFromXmlString(xml).rhr[0].valueBpm).toBe(48)
   })
 
+  it('parses an overnight respiratory-rate record', () => {
+    const xml =
+      '<Record type="HKQuantityTypeIdentifierRespiratoryRate" sourceName="Apple Watch" startDate="2026-01-15 03:00:00 -0800" endDate="2026-01-15 03:00:00 -0800" value="14.5"/>'
+    const out = parseRecordsFromXmlString(xml)
+    expect(out.respRate).toHaveLength(1)
+    expect(out.respRate[0].valueBrpm).toBe(14.5)
+    expect(out.respRate[0].start.sourceDay).toBe('2026-01-15')
+  })
+
   it('maps sleep stages and ignores unmapped values', () => {
     const core =
       '<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch" startDate="2026-01-14 23:10:00 -0800" endDate="2026-01-15 06:40:00 -0800" value="HKCategoryValueSleepAnalysisAsleepCore"/>'

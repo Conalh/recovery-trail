@@ -7,7 +7,7 @@ import { instantFromEpoch } from './appleHealthDate'
  * a fired rule without contriving an injury.
  */
 export function sampleParsedExport(today: Date = new Date()): ParsedExport {
-  const out: ParsedExport = { hrv: [], rhr: [], sleep: [], workouts: [], range: null }
+  const out: ParsedExport = { hrv: [], rhr: [], respRate: [], sleep: [], workouts: [], range: null }
   const rng = mulberry32(0x5eed_1234)
   const startDays = 30
 
@@ -37,6 +37,17 @@ export function sampleParsedExport(today: Date = new Date()): ParsedExport {
     out.rhr.push({
       start: instantFromEpoch(atHour(date, 5).getTime()),
       valueBpm: Math.round(rhrBase + rhrUp + rhrNoise),
+      source: 'Apple Watch',
+    })
+
+    // Respiratory rate: ~14 brpm baseline, drifting up ~2 brpm across the recent
+    // week (an elevated overnight breathing rate echoes the strain story).
+    const respBase = 14
+    const respNoise = (rng() - 0.5) * 0.6
+    const respUp = 2 * recentProgress
+    out.respRate.push({
+      start: instantFromEpoch(atHour(date, 3).getTime()),
+      valueBrpm: round1(respBase + respUp + respNoise),
       source: 'Apple Watch',
     })
 

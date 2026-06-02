@@ -109,6 +109,8 @@ body {
   .stagger-7 { animation-delay: 120ms; }
   .stagger-8 { animation-delay: 180ms; }
   .stagger-9 { animation-delay: 240ms; }
+  .stagger-10 { animation-delay: 300ms; }
+  .stagger-11 { animation-delay: 360ms; }
 
   @keyframes drawPath {
     to { stroke-dashoffset: 0; }

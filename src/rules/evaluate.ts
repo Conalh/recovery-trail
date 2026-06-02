@@ -2,6 +2,7 @@ import type { ParsedExport } from '../lib/types'
 import thresholds from './thresholds.json'
 import {
   dailyHrv,
+  dailyRespRate,
   dailyRhr,
   dailySleepHours,
   dailyWorkoutMinutes,
@@ -21,6 +22,7 @@ import {
   type TrendDetectionResult,
   type TrendSeverity,
 } from './trend'
+import { dailySri } from './sri'
 
 export type Severity = 'standard' | 'caution' | 'deload'
 
@@ -55,8 +57,10 @@ export type Recommendation = {
   series: {
     hrv: DailyMetric[]
     rhr: DailyMetric[]
+    respRate: DailyMetric[]
     sleepHours: DailyMetric[]
     workoutMin: DailyMetric[]
+    sri: DailyMetric[]
   }
   /** Composite recovery score (0–100); null when not enough data. */
   recoveryScore: number | null
@@ -74,10 +78,23 @@ export type Recommendation = {
    * the rule engine uses (NOT last-N-samples), so the heatmap/narrative agree
    * with the rule cards. null when the window holds no readings.
    */
-  baselines: { hrv: number | null; rhr: number | null; sleep: number | null; load: number | null }
+  baselines: {
+    hrv: number | null
+    rhr: number | null
+    respRate: number | null
+    sleep: number | null
+    sri: number | null
+    load: number | null
+  }
 }
 
-const TREND_RULE_IDS = new Set(['hrv_trend', 'rhr_trend', 'sleep_trend'])
+const TREND_RULE_IDS = new Set([
+  'hrv_trend',
+  'rhr_trend',
+  'resp_trend',
+  'sleep_trend',
+  'sri_trend',
+])
 
 export function evaluate(parsed: ParsedExport): Recommendation | null {
   const asOfDay = latestDay(parsed)
@@ -85,8 +102,16 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
 
   const hrv = dailyHrv(parsed.hrv)
   const rhr = dailyRhr(parsed.rhr)
+  const respRate = dailyRespRate(parsed.respRate)
   const sleepHours = dailySleepHours(parsed.sleep)
   const workoutMin = dailyWorkoutMinutes(parsed.workouts)
+  const sri = dailySri(
+    parsed.sleep,
+    asOfDay,
+    thresholds.sri.rollingWindowDays,
+    thresholds.sri.minPairs,
+    thresholds.sri.lookbackDays,
+  )
 
   // 28-day baselines: mean for context, SD for slope normalization. SD is
   // taken over the same date window as the mean (not the last N readings),
@@ -95,19 +120,28 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
   const hrvBaseSd = populationStdDev(windowValues(hrv, asOfDay, thresholds.hrv.baselineWindowDays))
   const rhrBase = windowMean(rhr, asOfDay, thresholds.rhr.baselineWindowDays)
   const rhrBaseSd = populationStdDev(windowValues(rhr, asOfDay, thresholds.rhr.baselineWindowDays))
+  const respBase = windowMean(respRate, asOfDay, thresholds.resp.baselineWindowDays)
+  const respBaseSd = populationStdDev(
+    windowValues(respRate, asOfDay, thresholds.resp.baselineWindowDays),
+  )
   const sleepWindow = thresholds.sleep.windowDays * 4
   const sleepBase = windowMean(sleepHours, asOfDay, sleepWindow)
   const sleepBaseSd = populationStdDev(windowValues(sleepHours, asOfDay, sleepWindow))
+  const sriBase = windowMean(sri, asOfDay, thresholds.sri.baselineWindowDays)
+  const sriBaseSd = populationStdDev(windowValues(sri, asOfDay, thresholds.sri.baselineWindowDays))
   const loadBase = windowMean(workoutMin, asOfDay, thresholds.workout.chronicDays)
 
   // Engine v2 dual-window detectors for HRV / RHR / sleep.
   const hrvTrend = detectTrend(hrv, asOfDay, hrvBaseSd, true)
   const rhrTrend = detectTrend(rhr, asOfDay, rhrBaseSd, false)
+  const respTrend = detectTrend(respRate, asOfDay, respBaseSd, false)
   const sleepTrend = detectTrend(sleepHours, asOfDay, sleepBaseSd, true)
+  const sriTrend = detectTrend(sri, asOfDay, sriBaseSd, true)
 
   // Composite recovery score for the level-dominates safety rule.
   const hrvShort = windowMean(hrv, asOfDay, thresholds.hrv.shortWindowDays)
   const rhrShort = windowMean(rhr, asOfDay, thresholds.rhr.shortWindowDays)
+  const respShort = windowMean(respRate, asOfDay, thresholds.resp.shortWindowDays)
   const sleepShort = windowMean(sleepHours, asOfDay, thresholds.sleep.windowDays)
 
   // Require a minimum number of RECENT readings before trusting a short-window
@@ -121,6 +155,9 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
       ? (hrvBase.mean - hrvShort.mean) / hrvBaseSd
       : null
   const rhrRiseBpm = rhrShortEnough && rhrBase.mean > 0 ? rhrShort.mean - rhrBase.mean : null
+  const respShortEnough = respShort.count >= thresholds.resp.minShortSamples
+  const respRiseBrpm =
+    respShortEnough && respBase.mean > 0 ? respShort.mean - respBase.mean : null
   const recoveryScore = compositeRecoveryScore({
     hrvDropSd,
     rhrRiseBpm,
@@ -136,7 +173,23 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
 
   pushTrendRule(fired, 'hrv_trend', 'HRV trending down', 'HRV', hrvTrend, levelDominates)
   pushTrendRule(fired, 'rhr_trend', 'Resting HR trending up', 'RHR', rhrTrend, levelDominates)
+  pushTrendRule(
+    fired,
+    'resp_trend',
+    'Respiratory rate trending up',
+    'Respiratory rate',
+    respTrend,
+    levelDominates,
+  )
   pushTrendRule(fired, 'sleep_trend', 'Sleep trending down', 'sleep', sleepTrend, levelDominates)
+  pushTrendRule(
+    fired,
+    'sri_trend',
+    'Sleep regularity slipping',
+    'Sleep regularity',
+    sriTrend,
+    levelDominates,
+  )
 
   // Level signals run alongside trend signals (engine v2 keeps both —
   // levels see WHERE the metric is, trends see WHERE IT'S GOING).
@@ -166,6 +219,20 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
         shortMean: round1(rhrShort.mean),
         baselineMean: round1(rhrBase.mean),
         riseBpm: round1(rhrRiseBpm),
+      },
+    })
+  }
+  if (respRiseBrpm !== null && respRiseBrpm >= thresholds.resp.riseBrpmCaution) {
+    const sev: Severity = respRiseBrpm >= thresholds.resp.riseBrpmDeload ? 'deload' : 'caution'
+    fired.push({
+      id: 'resp_above_baseline',
+      name: 'Respiratory rate elevated',
+      severity: sev,
+      why: `7-day overnight respiratory rate averaging ${respShort.mean.toFixed(1)} brpm vs a 28-day baseline of ${respBase.mean.toFixed(1)} brpm (+${respRiseBrpm.toFixed(1)} brpm). Elevated overnight breathing can flag illness or accumulating strain.`,
+      evidence: {
+        shortMean: round1(respShort.mean),
+        baselineMean: round1(respBase.mean),
+        riseBrpm: round1(respRiseBrpm),
       },
     })
   }
@@ -270,14 +337,16 @@ export function evaluate(parsed: ParsedExport): Recommendation | null {
     asOfDay,
     verdict,
     fired,
-    series: { hrv, rhr, sleepHours, workoutMin },
+    series: { hrv, rhr, respRate, sleepHours, workoutMin, sri },
     recoveryScore: recoveryScore === null ? null : round1(recoveryScore),
     levelDominates,
     insufficientData,
     baselines: {
       hrv: baselineOrNull(hrvBase),
       rhr: baselineOrNull(rhrBase),
+      respRate: baselineOrNull(respBase),
       sleep: baselineOrNull(sleepBase),
+      sri: baselineOrNull(sriBase),
       load: baselineOrNull(loadBase),
     },
   }

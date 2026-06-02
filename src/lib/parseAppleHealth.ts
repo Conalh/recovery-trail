@@ -1,6 +1,7 @@
 import type {
   HrvSample,
   ParsedExport,
+  RespRateSample,
   RhrSample,
   SleepSample,
   SleepStage,
@@ -10,6 +11,7 @@ import { parseAppleHealthDate } from './appleHealthDate'
 
 const HRV_TYPE = 'HKQuantityTypeIdentifierHeartRateVariabilitySDNN'
 const RHR_TYPE = 'HKQuantityTypeIdentifierRestingHeartRate'
+const RESP_TYPE = 'HKQuantityTypeIdentifierRespiratoryRate'
 const SLEEP_TYPE = 'HKCategoryTypeIdentifierSleepAnalysis'
 
 const SLEEP_VALUE_MAP: Record<string, SleepStage> = {
@@ -23,7 +25,7 @@ const SLEEP_VALUE_MAP: Record<string, SleepStage> = {
 }
 
 /** The only Record types we keep — a real export is mostly other types (steps, HR, …). */
-const KEPT_RECORD_TYPES = new Set([HRV_TYPE, RHR_TYPE, SLEEP_TYPE])
+const KEPT_RECORD_TYPES = new Set([HRV_TYPE, RHR_TYPE, RESP_TYPE, SLEEP_TYPE])
 
 // One compiled RegExp per attribute name. A full export has millions of records,
 // so compiling a fresh RegExp per attr() call dominated parse time; the patterns
@@ -107,6 +109,15 @@ function handleRecord(tag: string, out: ParsedExport): void {
     if (Number.isFinite(value)) {
       const sample: RhrSample = { start, valueBpm: value, source }
       out.rhr.push(sample)
+      out.range = widenRange(out.range, start.instantMs)
+    }
+    return
+  }
+  if (type === RESP_TYPE) {
+    const value = Number(attr(tag, 'value'))
+    if (Number.isFinite(value)) {
+      const sample: RespRateSample = { start, valueBrpm: value, source }
+      out.respRate.push(sample)
       out.range = widenRange(out.range, start.instantMs)
     }
     return
@@ -198,7 +209,7 @@ export function findTagOrElementEnd(buf: string, start: number): number {
  * handlers via flushTagInto for multi-hundred-MB streaming.
  */
 export function parseRecordsFromXmlString(xml: string): ParsedExport {
-  const result: ParsedExport = { hrv: [], rhr: [], sleep: [], workouts: [], range: null }
+  const result: ParsedExport = { hrv: [], rhr: [], respRate: [], sleep: [], workouts: [], range: null }
   let cursor = 0
   while (cursor < xml.length) {
     const next = nextOpening(xml, cursor)

@@ -1,4 +1,11 @@
-import type { HrvSample, ParsedExport, RhrSample, SleepSample, WorkoutSample } from '../lib/types'
+import type {
+  HrvSample,
+  ParsedExport,
+  RespRateSample,
+  RhrSample,
+  SleepSample,
+  WorkoutSample,
+} from '../lib/types'
 
 /**
  * Add `n` days to a YYYY-MM-DD day string. UTC arithmetic on the date
@@ -37,6 +44,14 @@ export function dailyRhr(samples: RhrSample[]): DailyMetric[] {
   return reduceByDay(
     samples.map((s) => ({ day: s.start.sourceDay, value: s.valueBpm })),
     'min',
+  )
+}
+
+/** Mean breaths-per-minute per calendar day (overnight respiratory rate). */
+export function dailyRespRate(samples: RespRateSample[]): DailyMetric[] {
+  return reduceByDay(
+    samples.map((s) => ({ day: s.start.sourceDay, value: s.valueBrpm })),
+    'mean',
   )
 }
 
@@ -185,6 +200,7 @@ export function latestDay(parsed: ParsedExport): string | null {
   const candidates: string[] = []
   for (const s of parsed.hrv) candidates.push(s.start.sourceDay)
   for (const s of parsed.rhr) candidates.push(s.start.sourceDay)
+  for (const s of parsed.respRate) candidates.push(s.start.sourceDay)
   for (const s of parsed.sleep) candidates.push(s.end.sourceDay)
   for (const s of parsed.workouts) candidates.push(s.start.sourceDay)
   if (candidates.length === 0) return null

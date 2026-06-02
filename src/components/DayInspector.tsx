@@ -3,7 +3,9 @@ import { cellTier, type MetricKey, type MetricSpec } from '../rules/briefing'
 const METRIC_LABEL: Record<MetricKey, string> = {
   hrv: 'HRV',
   rhr: 'RHR',
+  respRate: 'RESP',
   sleep: 'SLEEP',
+  sri: 'SRI',
   load: 'LOAD',
 }
 
@@ -16,7 +18,14 @@ const CELL_COLOR_HEX: Record<string, string> = {
   empty: 'rgba(28, 37, 46, 0.5)',
 }
 
-const ROW_STAGGER = ['stagger-6', 'stagger-7', 'stagger-8', 'stagger-9']
+const ROW_STAGGER = [
+  'stagger-6',
+  'stagger-7',
+  'stagger-8',
+  'stagger-9',
+  'stagger-10',
+  'stagger-11',
+]
 
 type Props = {
   day: string

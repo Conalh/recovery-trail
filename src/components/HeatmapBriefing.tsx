@@ -51,7 +51,9 @@ const CELL_COLOR_RGB: Record<CellTier, string> = {
 const METRIC_ROW_LABEL: Record<MetricKey, string> = {
   hrv: 'HRV',
   rhr: 'RHR',
+  respRate: 'RESP',
   sleep: 'SLEEP',
+  sri: 'SRI',
   load: 'LOAD',
 }
 
@@ -63,7 +65,14 @@ type HoveredCell = {
 }
 
 const INSPECTOR_EXIT_MS = 220
-const ROW_STAGGER_CLASSES = ['stagger-6', 'stagger-7', 'stagger-8', 'stagger-9']
+const ROW_STAGGER_CLASSES = [
+  'stagger-6',
+  'stagger-7',
+  'stagger-8',
+  'stagger-9',
+  'stagger-10',
+  'stagger-11',
+]
 type WindowSize = 14 | 28
 const WINDOW_OPTIONS: WindowSize[] = [14, 28]
 
@@ -80,7 +89,9 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   const specs: MetricSpec[] = [
     { key: 'hrv', label: 'HRV (SDNN)', unit: 'ms', series: series.hrv, higherIsBetter: true, precision: 0 },
     { key: 'rhr', label: 'Resting HR', unit: 'bpm', series: series.rhr, higherIsBetter: false, precision: 0 },
+    { key: 'respRate', label: 'Resp rate', unit: 'brpm', series: series.respRate, higherIsBetter: false, precision: 1 },
     { key: 'sleep', label: 'Sleep', unit: 'hrs', series: series.sleepHours, higherIsBetter: true, precision: 1 },
+    { key: 'sri', label: 'Sleep regularity', unit: 'SRI', series: series.sri, higherIsBetter: true, precision: 0 },
     { key: 'load', label: 'Load', unit: 'min', series: series.workoutMin, higherIsBetter: false, precision: 0 },
   ]
 
@@ -169,10 +180,10 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         return
       }
 
-      if (e.key >= '1' && e.key <= '4') {
+      if (e.key >= '1' && e.key <= '6') {
         const idx = Number(e.key) - 1
         const metric: MetricKey | undefined = (
-          ['hrv', 'rhr', 'sleep', 'load'] as MetricKey[]
+          ['hrv', 'rhr', 'respRate', 'sleep', 'sri', 'load'] as MetricKey[]
         )[idx]
         if (metric) {
           toggleMetric(metric)
@@ -560,6 +571,9 @@ function formatEvidenceLine(rule: FiredRule): string {
   }
   if ('rampPct' in e && 'thisWeekMin' in e && 'priorWeeklyAvgMin' in e) {
     return `+${e.rampPct}% vs prior   7d ${e.thisWeekMin}min   prior ${e.priorWeeklyAvgMin}min/wk`
+  }
+  if ('riseBrpm' in e && 'shortMean' in e && 'baselineMean' in e) {
+    return `7d ${e.shortMean}  base ${e.baselineMean}  +${e.riseBrpm}brpm`
   }
   return Object.entries(e)
     .map(([k, v]) => `${k} ${v}`)

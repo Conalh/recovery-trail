@@ -15,6 +15,7 @@ async function parse(file: File, post: (m: WorkerOutbound) => void): Promise<Par
   const result: ParsedExport = {
     hrv: [],
     rhr: [],
+    respRate: [],
     sleep: [],
     workouts: [],
     range: null,

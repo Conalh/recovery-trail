@@ -1,7 +1,7 @@
 import type { FiredRule, Severity } from './evaluate'
 import type { DailyMetric } from './aggregate'
 
-export type MetricKey = 'hrv' | 'rhr' | 'sleep' | 'load'
+export type MetricKey = 'hrv' | 'rhr' | 'respRate' | 'sleep' | 'sri' | 'load'
 
 export type MetricSpec = {
   key: MetricKey
@@ -43,7 +43,9 @@ export function isOffBaseline(tier: CellTier): boolean {
 export function metricOfRule(ruleId: string): MetricKey | null {
   if (ruleId.startsWith('hrv_')) return 'hrv'
   if (ruleId.startsWith('rhr_')) return 'rhr'
+  if (ruleId.startsWith('resp_')) return 'respRate'
   if (ruleId.startsWith('sleep_')) return 'sleep'
+  if (ruleId.startsWith('sri_')) return 'sri'
   if (ruleId.startsWith('load_')) return 'load'
   return null
 }
@@ -63,7 +65,17 @@ export function metaRule(fired: FiredRule[]): FiredRule | null {
   const hasDeload = fired.some((r) => r.severity === 'deload')
   const severity: Severity = hasDeload ? 'deload' : 'caution'
   const names = Array.from(metrics)
-    .map((m) => ({ hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', load: 'load' })[m])
+    .map(
+      (m) =>
+        ({
+          hrv: 'HRV',
+          rhr: 'resting HR',
+          respRate: 'respiratory rate',
+          sleep: 'sleep',
+          sri: 'sleep regularity',
+          load: 'load',
+        })[m],
+    )
     .join(', ')
     .replace(/,([^,]*)$/, ', and$1')
   return {
@@ -152,7 +164,14 @@ function countWord(n: number): string {
 }
 
 function labelOf(k: MetricKey): string {
-  return { hrv: 'HRV', rhr: 'resting HR', sleep: 'sleep', load: 'load' }[k]
+  return {
+    hrv: 'HRV',
+    rhr: 'resting HR',
+    respRate: 'respiratory rate',
+    sleep: 'sleep',
+    sri: 'sleep regularity',
+    load: 'load',
+  }[k]
 }
 
 function capitalize(s: string): string {

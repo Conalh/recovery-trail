@@ -15,6 +15,13 @@ export type RhrSample = {
   source: string
 }
 
+export type RespRateSample = {
+  start: Instant
+  /** Overnight respiratory rate, breaths per minute. */
+  valueBrpm: number
+  source: string
+}
+
 export type SleepSample = {
   start: Instant
   end: Instant
@@ -43,6 +50,7 @@ export type WorkoutSample = {
 export type ParsedExport = {
   hrv: HrvSample[]
   rhr: RhrSample[]
+  respRate: RespRateSample[]
   sleep: SleepSample[]
   workouts: WorkoutSample[]
   /** Inclusive [min, max] epoch ms across every start/end instant seen. */

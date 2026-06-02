@@ -14,6 +14,13 @@
     "riseBpmCaution": 3,
     "riseBpmDeload": 8
   },
+  "resp": {
+    "shortWindowDays": 7,
+    "baselineWindowDays": 28,
+    "minShortSamples": 3,
+    "riseBrpmCaution": 3,
+    "riseBrpmDeload": 5
+  },
   "sleep": {
     "windowDays": 7,
     "minRecentNights": 3,
@@ -21,6 +28,12 @@
     "deloadMinHours": 6.0,
     "minLowNights": 3,
     "lowNightHours": 6.0
+  },
+  "sri": {
+    "baselineWindowDays": 28,
+    "rollingWindowDays": 7,
+    "minPairs": 4,
+    "lookbackDays": 35
   },
   "workout": {
     "acuteDays": 7,

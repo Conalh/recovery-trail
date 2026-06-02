@@ -3,6 +3,7 @@ import {
   addDays,
   baselineMean,
   dailyHrv,
+  dailyRespRate,
   dailyRhr,
   dailySleepHours,
   dailyWorkoutMinutes,
@@ -15,6 +16,7 @@ import type { Instant } from '../lib/appleHealthDate'
 import type {
   HrvSample,
   ParsedExport,
+  RespRateSample,
   RhrSample,
   SleepSample,
   WorkoutSample,
@@ -60,6 +62,12 @@ describe('daily aggregators', () => {
       { start: inst('2026-01-15', 20), end: inst('2026-01-15', 21), activity: 'run', durationMin: 30, source: 't' },
     ]
     expect(dailyWorkoutMinutes(workouts)[0].value).toBe(75)
+
+    const resp: RespRateSample[] = [
+      { start: inst('2026-01-15', 3), valueBrpm: 14, source: 't' },
+      { start: inst('2026-01-15', 4), valueBrpm: 16, source: 't' },
+    ]
+    expect(dailyRespRate(resp)[0].value).toBe(15)
   })
 
   it('merges overlapping sleep intervals instead of double-counting', () => {
@@ -109,6 +117,7 @@ describe('latestDay', () => {
     const parsed: ParsedExport = {
       hrv: [{ start: inst('2026-01-20', 4), valueMs: 50, source: 't' }],
       rhr: [],
+      respRate: [],
       sleep: [
         { start: at(Date.UTC(2026, 0, 21, 23, 0), '2026-01-21'), end: at(Date.UTC(2026, 0, 22, 6, 0), '2026-01-22'), stage: 'asleepCore', source: 't' },
       ],
