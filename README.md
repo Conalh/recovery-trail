@@ -1,5 +1,7 @@
 # recovery-trail
 
+[![demo: live](https://img.shields.io/badge/demo-live-2ea44f)](https://conalh.github.io/recovery-trail/) ![runs client-side](https://img.shields.io/badge/runs-100%25%20client--side-0c4a6e) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white) [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **A two-week briefing on whether to push or pull back, with the math
 shown.** Drop an Apple Health `export.xml` in your browser, get an
 ACSM-aligned training verdict driven by dual-window trend detection.
@@ -7,6 +9,8 @@ No backend, no upload, no account — parsing and reasoning both happen
 client-side.
 
 🔗 **Live:** [conalh.github.io/recovery-trail](https://conalh.github.io/recovery-trail/) — there's a "Try with sample data" button on the import screen.
+
+> **Decision-support boundary.** recovery-trail shows the metrics, the rules that fired, and the slope math behind a push / hold / deload verdict. It is not medical advice and does not diagnose or treat — use it to inform a training decision, not replace clinical judgment.
 
 <p align="center">
   <img src="./docs/media/recovery-trail-hero.png" alt="recovery-trail briefing dashboard showing a deload verdict, recovery heatmap, and metric deviations" width="100%">
