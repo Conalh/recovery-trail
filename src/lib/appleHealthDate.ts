@@ -23,10 +23,10 @@ export type Instant = {
 }
 
 // Matches "YYYY-MM-DD HH:MM:SS ±HHMM" (Apple) and also tolerates an ISO 'T'
-// separator and "Z"/±HH:MM offsets, so synthetic sample data (toISOString) and
-// any future ISO input still parse through the same path.
+// separator, fractional seconds, and "Z"/±HH:MM offsets, so synthetic sample
+// data (toISOString) and future ISO input still parse through the same path.
 const AH_DATE_RE =
-  /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?\s*(Z|[+-]\d{2}:?\d{2})?$/
+  /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?\s*(Z|[+-]\d{2}:?\d{2})?$/
 
 /**
  * Parse an Apple Health (or ISO) timestamp into {instantMs, sourceDay}.
@@ -34,33 +34,62 @@ const AH_DATE_RE =
  */
 export function parseAppleHealthDate(input: string): Instant | null {
   const m = AH_DATE_RE.exec(input.trim())
-  if (!m) {
-    // Last resort so we never silently drop parseable-but-odd input: use the
-    // engine's Date parser, but derive sourceDay from UTC (deterministic and
-    // locale-independent) rather than from local getters.
-    const t = Date.parse(input)
-    if (Number.isNaN(t)) return null
-    return instantFromEpoch(t)
+  if (!m) return null
+
+  const [, y, mo, da, hh, mm, ss, fraction, off] = m
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(da)
+  const hour = Number(hh)
+  const minute = Number(mm)
+  const second = Number(ss)
+  const millisecond = fraction
+    ? Number(fraction.padEnd(3, '0').slice(0, 3))
+    : 0
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return null
   }
-  const [, y, mo, da, hh, mm, ss, off] = m
-  const sourceDay = `${y}-${mo}-${da}`
-  const wallUtc = Date.UTC(
-    Number(y),
-    Number(mo) - 1,
-    Number(da),
-    Number(hh),
-    Number(mm),
-    Number(ss),
-  )
+
+  // Build with setUTCFullYear so years 0000-0099 are not silently remapped to
+  // 1900-1999 by Date.UTC. Then round-trip every component to reject normalized
+  // dates such as February 31 instead of accepting them as March 3.
+  const wall = new Date(0)
+  wall.setUTCHours(0, 0, 0, 0)
+  wall.setUTCFullYear(year, month - 1, day)
+  wall.setUTCHours(hour, minute, second, millisecond)
+  if (
+    wall.getUTCFullYear() !== year ||
+    wall.getUTCMonth() !== month - 1 ||
+    wall.getUTCDate() !== day ||
+    wall.getUTCHours() !== hour ||
+    wall.getUTCMinutes() !== minute ||
+    wall.getUTCSeconds() !== second ||
+    wall.getUTCMilliseconds() !== millisecond
+  ) {
+    return null
+  }
+
   const offsetMin = off && off !== 'Z' ? parseOffsetMinutes(off) : 0
-  return { instantMs: wallUtc - offsetMin * 60_000, sourceDay }
+  if (offsetMin === null) return null
+  const sourceDay = `${y}-${mo}-${da}`
+  return { instantMs: wall.getTime() - offsetMin * 60_000, sourceDay }
 }
 
-function parseOffsetMinutes(off: string): number {
+function parseOffsetMinutes(off: string): number | null {
   const sign = off[0] === '-' ? -1 : 1
   const digits = off.slice(1).replace(':', '')
   const hours = Number(digits.slice(0, 2))
   const minutes = Number(digits.slice(2, 4))
+  if (hours > 23 || minutes > 59) return null
   return sign * (hours * 60 + minutes)
 }
 

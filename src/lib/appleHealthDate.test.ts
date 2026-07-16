@@ -26,6 +26,11 @@ describe('parseAppleHealthDate', () => {
     expect(r.instantMs).toBe(Date.UTC(2026, 0, 29, 6, 0, 0))
   })
 
+  it('preserves ISO fractional seconds', () => {
+    const r = parseAppleHealthDate('2026-01-29T06:00:00.527Z')!
+    expect(r.instantMs).toBe(Date.UTC(2026, 0, 29, 6, 0, 0, 527))
+  })
+
   it('tolerates a colon in the offset', () => {
     expect(parseAppleHealthDate('2026-01-29 06:00:00 -08:00')).toEqual(
       parseAppleHealthDate('2026-01-29 06:00:00 -0800'),
@@ -34,6 +39,16 @@ describe('parseAppleHealthDate', () => {
 
   it('returns null for unparseable input', () => {
     expect(parseAppleHealthDate('not a date')).toBeNull()
+  })
+
+  it('rejects normalized calendar dates and invalid offsets', () => {
+    expect(parseAppleHealthDate('2026-02-31 06:00:00 -0800')).toBeNull()
+    expect(parseAppleHealthDate('2026-01-29 24:00:00 -0800')).toBeNull()
+    expect(parseAppleHealthDate('2026-01-29 06:00:00 +2460')).toBeNull()
+  })
+
+  it('rejects noncanonical dates instead of using the environment Date parser', () => {
+    expect(parseAppleHealthDate('January 29, 2026 06:00:00')).toBeNull()
   })
 
   it('instantFromEpoch derives a deterministic UTC sourceDay', () => {
