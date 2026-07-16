@@ -6,6 +6,12 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Maintenance
+
+- Dependabot now groups compatible minor/patch updates and ignores semver-major
+  upgrades so routine maintenance stays reviewable without opening migration
+  PRs for TypeScript, Tailwind, or GitHub Actions.
+
 ## [0.2.0] - 2026-07-16
 
 ### Added
