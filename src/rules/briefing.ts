@@ -88,7 +88,7 @@ export function metaRule(fired: FiredRule[]): FiredRule | null {
 }
 
 /**
- * Data-aware narrative — finds the most recent day when all four metrics
+ * Data-aware narrative — finds the most recent day when all available metrics
  * were within baseline, then describes the rollover. Falls back to a
  * mixed-window phrasing if no such day exists.
  */

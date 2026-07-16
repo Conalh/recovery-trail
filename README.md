@@ -1,10 +1,10 @@
 # recovery-trail
 
-[![demo: live](https://img.shields.io/badge/demo-live-2ea44f)](https://conalh.github.io/recovery-trail/) ![runs client-side](https://img.shields.io/badge/runs-100%25%20client--side-0c4a6e) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white) [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![demo: live](https://img.shields.io/badge/demo-live-2ea44f)](https://conalh.github.io/recovery-trail/) ![runs client-side](https://img.shields.io/badge/runs-100%25%20client--side-0c4a6e) ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white) [![release](https://img.shields.io/github/v/release/Conalh/recovery-trail)](https://github.com/Conalh/recovery-trail/releases/latest) [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **A two-week briefing on whether to push or pull back, with the math
 shown.** Drop an Apple Health `export.xml` in your browser, get an
-ACSM-aligned training verdict driven by dual-window trend detection.
+evidence-referenced training verdict driven by dual-window trend detection.
 No backend, no upload, no account — parsing and reasoning both happen
 client-side.
 
@@ -86,8 +86,8 @@ Thresholds and math live in [`src/rules/trend.ts`](src/rules/trend.ts).
 ## Interactions
 
 - **Tap a cell** → day inspector slides in below the heatmap, all
-  four metrics' value/baseline/delta for that day.
-- **Tap a metric label** (HRV/RHR/SLEEP/LOAD) → that row's cells
+  six metrics' value/baseline/delta for that day.
+- **Tap a metric label** (HRV/RHR/RESP/SLEEP/SRI/LOAD) → that row's cells
   swap for a real line chart with baseline overlay, 7-day window
   shading, and clickable dots.
 - **Tap a rule** → focus mode. The relevant metric row stays bright,
@@ -125,7 +125,8 @@ The file never leaves your browser. Parsing is purely client-side.
 
 ## Stack
 
-- Vite + React 19 + TypeScript
+- Vite + React 19 + TypeScript 6
+- Vitest for parser/rule coverage + Playwright for the browser-level sample flow
 - Tailwind v3 (with custom `@layer utilities` for glow / pulse /
   stagger animations to compose against Tailwind's box-shadow
   CSS-variable system)
@@ -140,15 +141,23 @@ The file never leaves your browser. Parsing is purely client-side.
 ## Develop
 
 ```bash
-npm install
+npm ci
 npm run dev            # http://localhost:5173
+npm test               # parser and reasoning tests
 npm run build          # outputs ./dist with /recovery-trail/ base for Pages
+npm run test:e2e       # exercises the built sample-data journey in Chromium
 npm run preview        # serve the built bundle
+```
+
+Install the Playwright browser once before the first local end-to-end run:
+
+```bash
+npx playwright install chromium
 ```
 
 The GitHub Pages deploy is fully automated via
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) —
-every push to `main` lints, tests, builds, and ships on Node 22
+every push to `main` lints, runs unit and browser tests, builds, and ships on Node 22
 (`checkout@v6`, `setup-node@v6`, `configure-pages@v6`,
 `upload-pages-artifact@v5`, `deploy-pages@v5`).
 
@@ -172,7 +181,7 @@ src/
     sri.ts                          Sleep Regularity Index (rolling, from
                                     sleep/wake timing)
     briefing.ts                     cell-tier, narrative, metaRule
-    thresholds.json                 tunable ACSM/engine-v2 constants
+    thresholds.json                 tunable evidence-referenced level constants
 
   components/                       briefing UI
     Dashboard.tsx                   thin wrapper over HeatmapBriefing
@@ -189,7 +198,9 @@ src/
                                     (idle / parsing / ready / error)
   index.css                         Tailwind + animation keyframes
 
+e2e/                                Playwright sample-flow and screenshot coverage
 design/                             Claude Design exports + screenshots
+docs/media/                         current README screenshots
 .github/workflows/deploy.yml        GitHub Pages deploy
 ```
 
@@ -197,8 +208,9 @@ design/                             Claude Design exports + screenshots
 
 recovery-trail is an exploratory tool for fit, generally-healthy
 adults already training. It is **not** medical advice. ACSM
-thresholds, slope-severity bands, and the engine v2 combiner are
-general guidance derived from published methodology, not personal
+guidance is a broad exercise-science umbrella here; the level thresholds,
+slope-severity bands, and engine v2 combiner are heuristics informed by the
+specific monitoring literature cited below, not personal
 prescription. The workout-load rule flags a sharp week-over-week load
 increase against your prior 3-week baseline — an uncoupled alternative
 to the contested acute:chronic workload ratio (Impellizzeri et al.

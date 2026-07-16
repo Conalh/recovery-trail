@@ -21,7 +21,7 @@ function App() {
     if (!rec) {
       setPhase({
         kind: 'error',
-        message: 'No HRV, RHR, sleep, or workout records found in this file.',
+        message: 'No supported HRV, RHR, respiratory-rate, sleep, or workout records found in this file.',
       })
       return
     }

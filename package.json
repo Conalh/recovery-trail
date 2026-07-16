@@ -1,14 +1,19 @@
 {
   "name": "recovery-trail",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest run"
+    "preview": "vite preview --base /recovery-trail/",
+    "test": "vitest run",
+    "test:e2e": "playwright test --grep-invert @screenshots",
+    "screenshots:update": "playwright test --grep @screenshots"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
@@ -18,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

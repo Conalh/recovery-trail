@@ -215,7 +215,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
   })()
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-testid="briefing">
       <div className="stagger-in stagger-1 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
@@ -271,7 +271,10 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         ← new file
       </button>
 
-      <div className="stagger-in stagger-3 rounded-xl border border-panelLine bg-panel p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_30px_-12px_rgba(0,0,0,0.6)]">
+      <div
+        className="stagger-in stagger-3 rounded-xl border border-panelLine bg-panel p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_30px_-12px_rgba(0,0,0,0.6)]"
+        data-testid="briefing-heatmap"
+      >
         <div className="grid grid-cols-[56px_1fr_56px] items-center gap-3 px-1 font-mono text-[9.5px] text-faint">
           <div />
           <div className="flex justify-between">
@@ -452,7 +455,7 @@ export function HeatmapBriefing({ recommendation, onReset }: Props) {
         </p>
       )}
 
-      <div className="stagger-in stagger-5">
+      <div className="stagger-in stagger-5" data-testid="briefing-rules">
         <h3 className="px-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
           {allRules.length === 0
             ? 'no rules fired'

@@ -6,6 +6,8 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-16
+
 ### Added
 
 - **Overnight respiratory rate + Sleep Regularity Index (SRI) vectors.**
@@ -16,6 +18,12 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   trend. Both render as new heatmap rows. Grounded in Natarajan et al. (2021,
   *npj Digital Medicine*) for respiratory rate and Windred et al. (2024, *SLEEP*)
   for SRI.
+- **Browser-level release coverage.** A Playwright smoke test now exercises the
+  deployed-shaped build from the sample-data button through the six-signal
+  briefing, window toggle, metric expansion, and day inspector while verifying
+  that the journey makes no third-party requests.
+- **OSS maintenance surface.** Added contribution and security policies,
+  Dependabot configuration, and a repeatable screenshot-refresh command.
 
 ### Changed
 
@@ -37,6 +45,10 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   methodologically contested (Impellizzeri et al. 2020). Clarified that
   ACSM is a general umbrella, not the source of the specific HRV/RHR
   cutoffs.
+- **Public release truth.** Version metadata, README badges, screenshots,
+  Open Graph card, and social metadata now describe the six-signal TypeScript 6
+  application and its evidence-referenced decision-support boundary
+  consistently.
 
 ## [0.1.0] - 2026-05-29
 
@@ -87,3 +99,7 @@ Initial public release.
 - **Strict TypeScript** (`"strict": true`) across the app sources.
 - **CI gates:** the GitHub Pages workflow runs `lint` and `test` before building
   and deploying on every push to `main`.
+
+[Unreleased]: https://github.com/Conalh/recovery-trail/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Conalh/recovery-trail/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Conalh/recovery-trail/releases/tag/v0.1.0

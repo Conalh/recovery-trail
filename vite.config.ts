@@ -11,6 +11,7 @@ export default defineConfig(({ command }) => ({
     format: 'es',
   },
   test: {
+    include: ['src/**/*.test.ts'],
     // Date bucketing is offset-derived (timezone-independent) by design; pin TZ
     // anyway so any future locale-sensitive assertion stays deterministic in CI.
     environment: 'node',
